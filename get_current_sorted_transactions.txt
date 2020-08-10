@@ -1,0 +1,30 @@
+
+##############get_current_asset_sorted_transactions: 
+
+db.operations.aggregate([{'$match': {'selling_asset_type': 'credit_alphanum4', 'selling_asset_code': 'BCNY', 'selling_asset_issuer': 'GBCNYBHAAPDSU3UIHXXQTHYZVSBJBI4YUNWXMKJBCPDHTVYR75G6NFHD', 'buying_asset_type': 'native'}}, {'$sort': {'created_at': 1}}], {allowDiskUse: True});
+
+
+######first transaction
+{ "_id" : "95539919706947585", "ledger_id" : 22244621, "transaction_successful" : true, "source_account" : "GAOVLZQ6YVJMIE46EAA2ZAYUU6S3ETKHDDFASFINH4YLWUZKXAUBYBB2", "type" : "manage_sell_offer", "type_i" : 3, "created_at" : "2019-01-31T06:48:38.000Z", "transaction_hash" : "0347494fc30d351fd9a5d4dfde53ad334eafa772951f9050b042016a7b15073e", "amount" : 0, "price" : 1.71816, "price_r" : { "n" : 21477, "d" : 12500 }, "buying_asset_type" : "native", "selling_asset_type" : "credit_alphanum4", "selling_asset_code" : "BCNY", "selling_asset_issuer" : "GBCNYBHAAPDSU3UIHXXQTHYZVSBJBI4YUNWXMKJBCPDHTVYR75G6NFHD", "offer_id" : "63837882" }
+
+
+
+
+
+
+
+#######Second Transaction
+{ "_id" : "95539932591833089", "ledger_id" : 22244624, "transaction_successful" : true, "source_account" : "GAOVLZQ6YVJMIE46EAA2ZAYUU6S3ETKHDDFASFINH4YLWUZKXAUBYBB2", "type" : "manage_sell_offer", "type_i" : 3, "created_at" : "2019-01-31T06:48:56.000Z", "transaction_hash" : "f5b22b1dcfde3edcc7de41f07ba6692e4d68a9305bf5eb6ea2e22976d3dc0749", "amount" : 586.135, "price" :
+ 1.706092, "price_r" : { "n" : 426523, "d" : 250000 }, "buying_asset_type" : "native", "selling_asset_type" : "credit_alphanum4", "selling_asset_code" : "BCNY", "selling_asset_issuer" : "GBCNYBHAAPDSU3UIHXXQTHYZVSBJBI4YUNWXMKJBCPDHTVYR75G6NFHD", "offer_id" : "63837348" }
+
+
+[{'$match': {'selling_asset_type': 'credit_alphanum4', 'selling_asset_code': 'BCNY', 'selling_asset_issuer': 'GBCNYBHAAPDSU3UIHXXQTHYZVSBJBI4YUNWXMKJBCPDHTVYR75G6NFHD', 'buying_asset_type': 'native', 'created_at': {'$gte': '2019-01-31T00:00:00.000000Z', '$lte': '2019-01-31T23:59:59.000000Z'}}}, {'$sort': {'created': 1}}]
+
+
+
+
+db.operations.aggregate([{'$match': {'selling_asset_type': 'credit_alphanum4', 'selling_asset_code': 'BCNY', 'selling_asset_issuer': 'GBCNYBHAAPDSU3UIHXXQTHYZVSBJBI4YUNWXMKJBCPDHTVYR75G6NFHD', 'buying_asset_type': 'native', 'created_at': {'$gte': '2019-01-31T23:59:59.000000Z', '$lte': '2019-01-31T00:00:00.000000Z'}}}, {'$sort': {'created': 1}}], {'});
+
+
+db.operations.aggregate([{'$group': {'_id': {'selling_asset_type': 'credit_alphanum4', 'selling_asset_code': 'BCNY', 'selling_asset_issuer': 'GBCNYBHAAPDSU3UIHXXQTHYZVSBJBI4YUNWXMKJBCPDHTVYR75G6NFHD', 'buying_asset_type': 'native', 'created_at': {'$gte': '2019-01-31T00:00:00.000000Z', '$lte': '2019-01-31T23:59:59.000000Z'}}, 'amount': {'$sum': {'price'}}, 'total_number': {'$sum': 1}}}], {'allowDiskUse': true});
+

@@ -1,0 +1,58 @@
+
+//# We could not use this query becase of memory limits.
+[{"$group":
+    {"_id": {"selling_asset_type": "$selling_asset_type",
+      "selling_asset_code": "$selling_asset_code",
+      "selling_asset_issuer": "$selling_asset_issuer",
+      "buying_asset_type": "$buying_asset_type",
+      "buying_asset_code": "$buying_asset_code",
+      "buying_asset_issuer": "$buying_asset_issuer"
+            },
+  "attributes": {
+    "$push": {
+      "amount": "$amount",
+      "price": "$price",
+      "created_at": "$created_at"
+    }
+  }
+  }
+},
+{
+  "$sort": {
+    "created_at": 1
+  }
+},
+{"$out": "users_transactions_per_asset"}
+]
+
+//# We use this query instead of top query.
+[{"$group":
+    {"_id": {"selling_asset_type": "$selling_asset_type",
+      "selling_asset_code": "$selling_asset_code",
+      "selling_asset_issuer": "$selling_asset_issuer",
+      "buying_asset_type": "$buying_asset_type",
+      "buying_asset_code": "$buying_asset_code",
+      "buying_asset_issuer": "$buying_asset_issuer"
+            }
+  }
+},
+{
+  "$sort": {
+    "created_at": 1
+  }
+},
+{"$out": "users_transactions_per_asset"}
+]
+
+[
+  {"$match": {
+    "source_account": "GAOVLZQ6YVJMIE46EAA2ZAYUU6S3ETKHDDFASFINH4YLWUZKXAUBYBB2",
+    "selling_asset_code": "credit_alphanum4",
+    "selling_asset_type": "BCNY",
+    "selling_asset_issuer": "GBCNYBHAAPDSU3UIHXXQTHYZVSBJBI4YUNWXMKJBCPDHTVYR75G6NFHD",
+    "buying_asset_type": "native"
+  }},
+  "$group":{
+
+}
+]
