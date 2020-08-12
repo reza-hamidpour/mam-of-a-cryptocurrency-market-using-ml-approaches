@@ -19,6 +19,18 @@ class UserAmountInEachDay:
         # self.u_wc_s_per_each_day = db.u_working_capital_s_per_15_minuets
         # self.u_wc_b_per_each_day = db.u_working_capital_b_per_15_minuets
 
+    def get_users(self):
+        query = [{"$group": {
+            "_id": "$source_account"
+        }}]
+        self.users = self.operations.aggregate(pipeline=query, allowDiskUse=True)
+
+    def user_handler(self):
+        for user in self.users:
+
+    def get_amount_and_number_t_per_15_minuets(self, source_account):
+
+
     def get_users_tranasctions(self, asset):
         if asset != "native":
             query = [{
@@ -91,8 +103,6 @@ class UserAmountInEachDay:
             self.amount_and_number_t_each_day(transactions)
         print("Finished.")
 
-
-
     def get_user_transactions_base_b(self):
         self.u_wc_b_per_each_d = True
         for user_asset in self.coll_b_transactions:
@@ -158,7 +168,6 @@ class UserAmountInEachDay:
         if active_asset:
             today_object = self.get_today_obejct(l_transaction, current_amount, number, time_window_started)
             self.save_today_transactions(today_object, inserted_number, True)
-
 
     def get_today_obejct(self, transaction, amount, number, t_date):
         if transaction["selling_asset_type"] == "native":
