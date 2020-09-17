@@ -76,7 +76,6 @@ class ComputeChangeInInventory:
             self.number_of_short_positions = 0
             self.long_positions_amount = 0.0
             self.number_of_long_positions = 0
-
         if (hasattr(transaction, "selling_asset_type") and
             transaction["selling_asset_type"] == self.active_asset) or \
                 (hasattr(transaction, "selling_asset_code") and

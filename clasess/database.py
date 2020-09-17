@@ -7,11 +7,12 @@ class Database:
     op_col = "operations"
     leg_col = "ledgers"
     db_name = "stellar"
+    client = None
     db = None
 
     def __init__(self):
-        client = MongoClient()
-        self.db = client[self.db_name]
+        self.client = MongoClient()
+        self.db = self.client[self.db_name]
 
     def get_db(self):
         return self.db
@@ -21,6 +22,9 @@ class Database:
             return self.db[collection]
         else:
             return None
+
+    def select_another_db(self, db_name):
+        return self.client[db_name]
 
     # def select_new_collection(self, col_name):
     #     return self.db[]
