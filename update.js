@@ -19,3 +19,8 @@ db.E_B_bucket.find().snapshot().forEach(myfun);
  }
 ]
 
+
+
+db.eth_bucket.aggregate();
+
+

@@ -17,7 +17,7 @@ class userAmountIn15Minuets:
     TASKs_Number = 11
     number_of_tasks = 0
     queue = None
-    number_of_users_added = 31
+    number_of_users_added = 10
 
     def __init__(self, operation, db, working_collection, active_asset, opening_time, closing_time):
         self.operations = operation
@@ -44,10 +44,26 @@ class userAmountIn15Minuets:
         for user in self.users:
             print("user(" + str(user['_id']) + ") started.")
             if self.number_of_users_added <= 0:
+                await self.load_user_transactions(user["_id"])
                 await self.async_compute_and_save_tv_tn(user["_id"])
             else:
                 self.number_of_users_added -= 1
                 print("Leave this user.")
+
+    async def load_user_transactions(self, source_account):
+        query = [
+            {
+                "$match": {
+                    "source_account": source_account
+                }
+            },
+            {
+                "$sort": {
+                    "created_at": 1
+                }
+            }
+        ]
+        self.user_transactions = self.operations.aggregate(pipeline=query)
 
     async def async_compute_and_save_tv_tn(self, source_account):
         loop = asyncio.get_event_loop()
@@ -61,7 +77,9 @@ class userAmountIn15Minuets:
         while current_time <= self.closing_time:
             self.number_of_tasks += 1
             end_of_time_window = current_time + timedelta(seconds=900)
-            await queue.put({"source_account": source_account,
+            transactions = await self.load_time_window_transactions(current_time, end_of_time_window)
+            await queue.put({"transactions": transactions,
+                            "source_account": source_account,
                              "current_time": current_time,
                              "end_time": end_of_time_window})
             print("put item in queue, Size are : ", queue.qsize())
@@ -72,6 +90,7 @@ class userAmountIn15Minuets:
                 await queue.join()
                 await asyncio.sleep(5)
         self.number_of_tasks = 0
+        self.user_transactions = None
         await queue.join()
         tasks = []
 
@@ -79,8 +98,7 @@ class userAmountIn15Minuets:
 
     async def tv_tn_computing(self, queue):
         obj = await queue.get()
-        transactions = self.query_on_user_transactions(obj["source_account"], obj["current_time"], obj["end_time"])
-        TV_and_NofT = await self.compute_trading_volume_number_of_trades(transactions)
+        TV_and_NofT = await self.compute_trading_volume_number_of_trades(obj["transactions"])
         self.cumulative_trading_volume += TV_and_NofT["trading_volume"]
         self.cumulative_number_of_trades += TV_and_NofT["number_of_trades"]
         obj_result = {
@@ -121,6 +139,16 @@ class userAmountIn15Minuets:
         print(source_account, " finished successfully.")
         queue.task_done()
 
+    async def load_time_window_transactions(self, start_time_window, end_time_window):
+        tw_transactions = []
+        for transaction in self.user_transactions:
+            tmp = datetime.strptime(transaction["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ")
+            if tmp >= start_time_window and tmp <= end_time_window:
+                tw_transactions.append(transaction)
+            else:
+                continue
+        return tw_transactions
+
     def query_on_user_transactions(self, source_account, start_time, end_time):
         print(" Start query on transactions at ", str(start_time))
         query = [
@@ -146,4 +174,3 @@ class userAmountIn15Minuets:
 
     async def save_tv_and_nt_per_user_in_15_minuets(self, obj):
         self.working_collection.insert(obj)
-

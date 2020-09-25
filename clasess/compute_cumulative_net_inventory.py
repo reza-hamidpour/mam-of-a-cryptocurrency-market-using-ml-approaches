@@ -16,14 +16,28 @@ class CumulativeNetInventory:
         self.closing_time = datetime.strptime(closing_time, "%Y-%m-%dT%H:%M:%SZ")
 
     def get_users(self):
-        query = [{"$group": {
-            "_id": "$source_account"
-        }}]
+        query = [
+            {
+                "$sort": {"created_at": 1}
+            },
+            {
+                "$group": {
+                    "_id": "$source_account"
+                }
+            }
+        ]
         self.users = self.bucket.aggregate(pipeline=query, allowDiskUse=True)
 
-    def handel_users(self):
+    async def handel_users(self):
+        await self.load_processed_users()
         for user in self.users:
-            self.handle_tasks(user["_id"])
+            if self.check_user_exists(user["_id"]) == False:
+                await self.load_user_transactions(user["_id"])
+                print("Source account : ", user["_id"], " Started.")
+                await self.tasks_handler_for_net_inventory(user["_id"])
+            else:
+                print("Leave this user")
+        print("Finish.")
 
     async def handle_tasks(self, source_account):
         current_time  = self.opening_time
