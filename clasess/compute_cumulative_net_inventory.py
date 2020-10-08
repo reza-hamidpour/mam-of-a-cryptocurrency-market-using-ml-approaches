@@ -28,15 +28,29 @@ class CumulativeNetInventory:
         ]
         self.users = self.bucket.aggregate(pipeline=query, allowDiskUse=True)
 
+    # async def users_handler(self):
+    #     counter = 1
+    #     for user in self.users:
+    #         check_user = await self.check_user_exists(user["_id"])
+    #         if  check_user == False:
+    #             await self.load_user_transactions(user["_id"])
+    #             print("Source account : ", user["_id"], " Started.")
+    #             await self.tasks_handler_for_net_inventory(user["_id"])
+    #         else:
+    #             counter += 1
+    #             print(counter, "- Leave this user")
+    #     print("Finish.")
+
     async def handel_users(self):
-        await self.load_processed_users()
+        counter = 1
         for user in self.users:
             if self.check_user_exists(user["_id"]) == False:
                 await self.load_user_transactions(user["_id"])
                 print("Source account : ", user["_id"], " Started.")
                 await self.tasks_handler_for_net_inventory(user["_id"])
             else:
-                print("Leave this user")
+                counter += 1
+                print(counter, "- Leave this user")
         print("Finish.")
 
     async def handle_tasks(self, source_account):

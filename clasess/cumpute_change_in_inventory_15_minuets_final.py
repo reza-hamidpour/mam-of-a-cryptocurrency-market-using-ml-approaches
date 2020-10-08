@@ -9,7 +9,6 @@ class ComputeChangeInInventory:
     users = None
     queue_size = 11
     user_transactions = None
-    processed_users = None
 
     def __init__(self, operations, db, working_collection, opening_time, closing_time, active_asset):
         self.operations = operations
@@ -32,14 +31,16 @@ class ComputeChangeInInventory:
         self.users = self.operations.aggregate(pipeline=query, allowDiskUse=True)
 
     async def users_handler(self):
-        await self.load_processed_users()
+        counter = 1
         for user in self.users:
-            if self.check_user_exists(user["_id"]) == False:
+            check_user = await self.check_user_exists(user["_id"])
+            if  check_user == False:
                 await self.load_user_transactions(user["_id"])
                 print("Source account : ", user["_id"], " Started.")
                 await self.tasks_handler_for_net_inventory(user["_id"])
             else:
-                print("Leave this user")
+                counter += 1
+                print(counter, "- Leave this user")
         print("Finish.")
 
     async def load_user_transactions(self, source_account):
@@ -105,10 +106,9 @@ class ComputeChangeInInventory:
             await self.save_short_and_long_positions(obj)
             # print("Positions at time " + str(data["start_time_window"]) + " inserted.")
             change_in_inventory = None
+            await queue.task_done()
         except Exception as e:
-            print(e)
             pass
-        await queue.task_done()
 
     async def load_time_window_transactions(self, start_time_window, end_time_window):
         tw_transactions = []
@@ -162,23 +162,13 @@ class ComputeChangeInInventory:
         self.working_collection.insert(obj)
         # print("Positions at time " + obj["time_window"] + " saved.")
 
-    def check_user_exists(self, source_account):
-        for user in self.processed_users:
-            if source_account == user["_id"]:
-                return True
-        return False
+    async def check_user_exists(self, source_account):
+        query = {
+            "source_account": source_account
+        }
+        processed_users = self.working_collection.find_one(query)
+        check = False
 
-    async def load_processed_users(self):
-        query = [
-            {
-                "$sort": {
-                    "created_at": 1
-                }
-            },
-            {
-                "$group": {
-                    "_id": "$source_account"
-                }
-            }
-        ]
-        self.processed_users = self.working_collection.aggregate(query)
+        if processed_users != None and len(list(processed_users)) > 0:
+            check = True
+        return check
