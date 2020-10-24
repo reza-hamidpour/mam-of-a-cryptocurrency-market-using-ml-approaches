@@ -1,5 +1,5 @@
-## Data preprocessing
-## In this file we did some preprocessing operations on ower gathered data.
+# Data preprocessing
+In this file we did some preprocessing operations on ower gathered data.
 
 ## 1- Extracting 3 buckets from our data ( operations ) 
     1-1 BTC bucket : All transactions which have btc asset on at least one side of offers.
