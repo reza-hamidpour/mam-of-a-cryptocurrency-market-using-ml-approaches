@@ -9,9 +9,8 @@ class MatrixPerUser:
     source_account  = None
     queue_size      = 10
 
-    def __init__(self, db, operations, collections, assets, opening_time, closing_time):
+    def __init__(self, db, operations, assets, opening_time, closing_time):
         self.db                     = db
-        self.collections            = collections
         self.operations             = operations
         self.assets                 = assets
         self.opening_time           = opening_time
