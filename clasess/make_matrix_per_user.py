@@ -8,9 +8,9 @@ class MatrixPerUser:
     users           = None
     source_account  = None
     queue_size      = 10
-    NT_TV_records   = []
-    CNI_records     = []
-    CII_records     = []
+    NT_TV_records   = {}
+    CNI_records     = {}
+    CII_records     = {}
 
 
     def __init__(self, db, operations, assets, opening_time, closing_time):
