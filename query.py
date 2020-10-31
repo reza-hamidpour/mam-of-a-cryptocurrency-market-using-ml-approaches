@@ -103,3 +103,10 @@ compute_bucket = [
     }},
     {"$out": "native_bucket"}
 ]
+
+query = [
+    {'source_account': 'GA26IUBCB6LSCY6KF54FP2QSXIDE4WTSN2HINXMWGBCTRFJQNVQX2EOB',
+     "$and": [{"time_window": {'$gte': '2019-10-09T15:30:38.000000Z'}},
+              {"time_window": {'$lte': '2019-10-09T18:00:38.000000Z'}}]}
+
+]

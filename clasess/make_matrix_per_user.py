@@ -7,14 +7,14 @@ import math
 class MatrixPerUser:
     users           = None
     source_account  = None
-    queue_size      = 10
+    queue_size      = 2
     NT_TV_records   = {}
     CNI_records     = {}
     CII_records     = {}
 
 
-    def __init__(self, db, operations, assets, opening_time, closing_time):
-        self.db                         = db
+    def __init__(self, collections, operations, assets, opening_time, closing_time):
+        self.collections                         = collections
         self.operations                 = operations
         self.assets                     = assets
         for asset in self.assets:
@@ -38,12 +38,11 @@ class MatrixPerUser:
 
     async def handler_users(self):
         for user in self.users:
-          self.source_account = user["_id"]
-          print("Starting ", self.source_account, " ... .")
-          await self.time_window_handler()
+          print("Starting ", user["_id"], " ... .")
+          await self.time_window_handler(user["_id"])
         print("Finish")
 
-    async def time_window_handler(self):
+    async def time_window_handler(self, source_account):
         iterator = 0
         loop = asyncio.get_event_loop()
         queue = asyncio.Queue(100)
@@ -55,20 +54,24 @@ class MatrixPerUser:
                                    "CII",
                                    "CNI",
                                    "asset_code"])
-        while current_time <= self.closing_time:
-            for asset in self.assets:
+
+        for asset in self.assets:
+            while current_time <= self.closing_time:
                 if iterator <= self.queue_size:
                     await queue.put({
+                            "source_account": source_account,
                             "asset"      : asset,
                             "time_window": current_time,
                             "df"         : df
                         })
                     iterator += 1
+                    print("Task pushed.")
                 else:
+                    print("waiting for tasks")
                     await queue.join()
                     iterator = 0
-            current_time = current_time + timedelta(seconds=900)
-        await df.to_csv(str(self.source_account) + ".csv")
+                current_time = current_time + timedelta(seconds=900)
+        await df.to_csv(str(source_account) + ".csv")
 
     async def map_time_window_into_csv_format(self, queue):
         obj =  await queue.get()
@@ -80,21 +83,22 @@ class MatrixPerUser:
             asset_code = 2
         elif obj["asset"] == "eth":
             asset_code = 3
-        NT_TV   = await self.load_NT_TV_user(obj["asset"], obj["time_window"])
-        CII     = await self.load_CII_user(obj["asset"], obj["time_window"])
-        CNI     = await self.load_CNI_user(obj["asset"], obj["time_window"])
+        print("gathering records ...")
+        NT_TV   = await self.load_NT_TV_user(obj["source_account"], obj["asset"], obj["time_window"])
+        CII     = await self.load_CII_user(obj["source_account"], obj["asset"], obj["time_window"])
+        CNI     = await self.load_CNI_user(obj["source_account"], obj["asset"], obj["time_window"])
         obj["df"].append({
                 "unixtime"  : unixtime,
-                "NT"        : await self.log(   NT_TV["nt"] ),
-                "TV"        : await self.log(   NT_TV["tv"] ),
-                "CII"       : await self.log(   CII ),
-                "CNI"       : await self.log(   CNI ),
+                "NT"        : await self.log( NT_TV["nt"] ),
+                "TV"        : await self.log( NT_TV["tv"] ),
+                "CII"       : await self.log( CII ),
+                "CNI"       : await self.log( CNI ),
                 "asset_code": asset_code
         })
         print("Task ", obj["asset"], " at ", obj["time_window"], " pushed.")
         queue.task_done()
 
-    async def load_NT_TV_user(self, asset, tw):
+    async def load_NT_TV_user(self, source_account, asset, tw):
         if self.NT_TV_records[asset] != None:
             result = await self.search_in_RAM(self.NT_TV_records,
                                               asset,
@@ -107,24 +111,27 @@ class MatrixPerUser:
                 }
         self.NT_TV_records[asset] = None
         next_tw = tw + timedelta(seconds=9000)
-        query = {
-            "source_account": self.source_account,
-            "time_window"   : {
-                "$gte": tw,
-                "$lte": next_tw
-            }
-        }
-        self.NT_TV_records[asset] = await self.db[str(asset) +
-                                                  "_user_working_capital_selling_per_15_minuets"].find(query)
-        transaction = list()
+        query = [
+            {"$match": {
+                "source_account": source_account,
+                "time_window": {
+                    "$gte": datetime.strftime(tw, "%Y-%m-%dT%H:%M:%S.%fZ"),
+                    "$lte": datetime.strftime(next_tw, "%Y-%m-%dT%H:%M:%S.%fZ")
+                }
+            }}
+        ]
+
+        self.NT_TV_records[asset] = await self.collections[asset]["uwc"].aggregate(pipeline=query)
         result = {"nt": 0.0,
                   "tv": 0.0}
-        if len(transaction) > 0:
+        transaction = await list(self.NT_TV_records[asset])
+        if transaction > 0:
             result["nt"] = transaction[0]["number_of_trades"]
             result["tv"] = transaction[0]["trading_volume"]
+            transaction = None
         return result
 
-    async def load_CII_user(self, asset, tw):
+    async def load_CII_user(self, source_account, asset, tw):
         if self.CII_records[asset] != None:
             change_in_inventory = await self.search_in_RAM(self.CII_records, asset,
                                                            tw,
@@ -134,21 +141,23 @@ class MatrixPerUser:
                 return change_in_inventory
         self.CII_records[asset] = None
         next_tw = tw + timedelta(seconds=9000)
-        query = {
-            "source_account": self.source_account,
+        query = [
+            {"$match": {
+            "source_account": source_account,
             "time_window"   : {
                 "$gte" : tw,
                 "$lte" : next_tw
             }
-        }
-        self.CII_records[asset] = await self.db[str(asset) + "_change_in_inventory_per_15_minuets"].find(query)
-        transaction = list(self.CII_records[asset])[0]
+        }}
+        ]
+        self.CII_records[asset] = await self.collections[asset]["cii"].aggregate(pipeline=query)
+        transaction = await list(self.CII_records[asset])
         change_in_inventory = 0.0
         if len(transaction) > 0:
-            change_in_inventory = transaction["change_in_inventory"]
+            change_in_inventory = transaction[0]["change_in_inventory"]
         return change_in_inventory
 
-    async def load_CNI_user(self, asset, tw):
+    async def load_CNI_user(self, source_account, asset, tw):
         if self.CNI_records[asset] != None:
             cumulative_net_inventory = await self.search_in_RAM(self.CNI_records,
                                                                 asset,
@@ -159,18 +168,20 @@ class MatrixPerUser:
                 return cumulative_net_inventory
         self.CNI_records[asset] = None
         next_tw = tw + timedelta(seconds=9000) # get 10 records
-        query = {
-            "source_account"    : self.source_account,
+        query = [
+            {"$match": {
+            "source_account"    : source_account,
             "end_of_time_period": {
                 "$gte": tw,
                 "$lte": next_tw
             }
-        }
-        self.CNI_records[asset] = await self.db[str(asset) + "_cumulative_net_inventory_per_15_minuets"].find(query)
-        transaction = list(self.CNI_records[asset])[0]
+        }}
+        ]
+        self.CNI_records[asset] = await self.collections[asset]["cni"].aggregate(pipeline=query)
+        transaction = await list(self.CNI_records[asset])
         cumulative_net_inventory = 0.0
         if len(transaction) > 0:
-            cumulative_net_inventory = transaction["cumulative_net_inventory"]
+            cumulative_net_inventory = transaction[0]["cumulative_net_inventory"]
         return cumulative_net_inventory
 
     async def search_in_RAM(self, transactions, asset, time_window, con_attr, get_attr="" ):
