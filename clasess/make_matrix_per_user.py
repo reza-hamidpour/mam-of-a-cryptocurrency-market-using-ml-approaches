@@ -14,7 +14,7 @@ class MatrixPerUser:
     NT_TV_records   = {}
     CNI_records     = {}
     CII_records     = {}
-
+    path_csvs = "eth_btc_csv"
 
     def __init__(self, collections, operations, assets, opening_time, closing_time):
         self.collections                         = collections
@@ -32,11 +32,16 @@ class MatrixPerUser:
     def query_on_users(self):
         query = [
             {"$group": {
-                "_id": "$source_account"
-            }
-            },
-            {"$sort": {"_id": 1}}
+                "_id": "$_id",
+            }}
         ]
+        # query = [
+        #     {"$group": {
+        #         "_id": "$source_account"
+        #     }
+        #     },
+        #     {"$sort": {"_id": 1}}
+        # ]
         self.users = self.operations.aggregate(pipeline=query, allowDiskUse=True)
 
     async def handler_users(self):
@@ -49,6 +54,7 @@ class MatrixPerUser:
         iterator = 0
         loop = asyncio.get_event_loop()
         df = pd.DataFrame(columns=["unixtime",
+                                   "Date",
                                    "NT",
                                    "TV",
                                    "CII",
@@ -71,22 +77,53 @@ class MatrixPerUser:
                     RAM_SEARCH = False
                     iterator = 0
                 iterator += 1
-                task_1 = loop.create_task(self.load_NT_TV_user(source_account, asset, current_time, RAM_SEARCH))
-                task_2 = loop.create_task(self.load_CII_user(source_account, asset, current_time, RAM_SEARCH))
-                task_3 = loop.create_task(self.load_CNI_user(source_account, asset, current_time, RAM_SEARCH))
-                print("Waiting for tasks... .")
-                NT_TV = await task_1
-                CII = await task_2
-                CNI = await task_3
-                df.append([unixtime,
-                           await self.log(NT_TV['nt']),
-                           await self.log(NT_TV['tv']),
-                           await self.log(CII),
-                           await self.log(CNI),
-                           asset])
-                print(iterator, " time window added.")
+                NT_TV = await self.load_NT_TV_user(source_account, asset, current_time, RAM_SEARCH)
+                CII = await self.load_CII_user(source_account, asset, current_time, RAM_SEARCH)
+                CNI = await self.load_CNI_user(source_account, asset, current_time, RAM_SEARCH)
+                # print("Waiting for tasks... .")
+                # NT_TV = await task_1
+                # CII = await task_2
+                # CNI = await task_3
+                # NT_TV = {"nt": await self.log(NT_TV['nt']), "tv": await self.log(NT_TV["tv"])}
+                # CII = await self.log(CII)
+                # CNI = await self.log(CNI)
+                # try:
+                #     df.append({
+                #         "unixtime": unixtime,
+                #         "NT": NT_TV['nt'],
+                #         "TV": NT_TV['tv'],
+                #         "CII": CII,
+                #         "CNI": CNI,
+                #         "asset_code": source_account
+                #         }, ignore_index=True)
+                # except Exception as e:
+                #     print(e)
+                # df2 = pd.DataFrame([unixtime,
+                #            NT_TV['nt'],
+                #            NT_TV['tv'],
+                #            CII,
+                #            CNI,
+                #            asset], columns=["unixtime",
+                #                       "NT",
+                #                       "TV",
+                #                       "CII",
+                #                       "CNI",
+                #                       "asset_code"])
+                df = df.append(
+                    {
+                        "unixtime": str(unixtime),
+                        "Date": datetime.strftime(current_time, "%Y-%m-%dT%H:%M:%S.%fZ"),
+                        "NT": await self.log(NT_TV['nt']),
+                        "TV": await self.log(NT_TV['tv']),
+                        "CII": await self.log(CII),
+                        "CNI": await self.log(CNI),
+                        "asset_code": asset
+                    }, ignore_index=True)
+                # print(df)
+                # print("##################################")
+                # print(iterator, " time window added.")
                 current_time = current_time + timedelta(seconds=900)
-        df.to_csv(str(source_account) + ".csv")
+        df.to_csv(self.path_csvs + "/" + str(source_account) + ".csv")
 
 
     async def multitasking_time_window_handler(self, source_account):

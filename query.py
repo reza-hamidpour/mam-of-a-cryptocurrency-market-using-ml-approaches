@@ -104,6 +104,14 @@ compute_bucket = [
     {"$out": "native_bucket"}
 ]
 
+get_eth_btc_users = [
+    {
+        "$group": {"_id": "$source_account"}
+    },
+    {"$out": "eth_btc_users"}
+]
+
+
 query = [
     {'source_account': 'GA26IUBCB6LSCY6KF54FP2QSXIDE4WTSN2HINXMWGBCTRFJQNVQX2EOB',
      "$and": [{"time_window": {'$gte': '2019-10-09T15:30:38.000000Z'}},
