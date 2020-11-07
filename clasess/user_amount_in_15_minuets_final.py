@@ -122,7 +122,7 @@ class userAmountIn15Minuets:
             end_of_time_window = current_time + timedelta(seconds=900)
             await self.query_on_user_transactions(source_account, current_time, end_of_time_window)
             TV_and_NofT = await self.compute_trading_volume_number_of_trades()
-            print("Trading volume and number of trades at " + str(current_time) + " computed.")
+            # print("Trading volume and number of trades at " + str(current_time) + " computed.")
             self.cumulative_trading_volume += TV_and_NofT["trading_volume"]
             self.cumulative_number_of_trades += TV_and_NofT["number_of_trades"]
             obj = {

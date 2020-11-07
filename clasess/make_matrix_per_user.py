@@ -14,7 +14,7 @@ class MatrixPerUser:
     NT_TV_records   = {}
     CNI_records     = {}
     CII_records     = {}
-    path_csvs = "eth_btc_csv"
+    path_csvs = "eth_btc_csv_check"
 
     def __init__(self, collections, operations, assets, opening_time, closing_time):
         self.collections                         = collections
@@ -61,8 +61,8 @@ class MatrixPerUser:
                                    "CNI",
                                    "asset_code"])
         current_time = self.opening_time
-        for asset in self.assets:
-            while current_time <= self.closing_time:
+        while current_time <= self.closing_time:
+            for asset in self.assets:
                 unixtime = current_time.timestamp()
                 asset_code = 1
                 # if obj["asset"] == "native":
@@ -81,34 +81,6 @@ class MatrixPerUser:
                 CII = await self.load_CII_user(source_account, asset, current_time, RAM_SEARCH)
                 CNI = await self.load_CNI_user(source_account, asset, current_time, RAM_SEARCH)
                 # print("Waiting for tasks... .")
-                # NT_TV = await task_1
-                # CII = await task_2
-                # CNI = await task_3
-                # NT_TV = {"nt": await self.log(NT_TV['nt']), "tv": await self.log(NT_TV["tv"])}
-                # CII = await self.log(CII)
-                # CNI = await self.log(CNI)
-                # try:
-                #     df.append({
-                #         "unixtime": unixtime,
-                #         "NT": NT_TV['nt'],
-                #         "TV": NT_TV['tv'],
-                #         "CII": CII,
-                #         "CNI": CNI,
-                #         "asset_code": source_account
-                #         }, ignore_index=True)
-                # except Exception as e:
-                #     print(e)
-                # df2 = pd.DataFrame([unixtime,
-                #            NT_TV['nt'],
-                #            NT_TV['tv'],
-                #            CII,
-                #            CNI,
-                #            asset], columns=["unixtime",
-                #                       "NT",
-                #                       "TV",
-                #                       "CII",
-                #                       "CNI",
-                #                       "asset_code"])
                 df = df.append(
                     {
                         "unixtime": str(unixtime),
@@ -117,11 +89,8 @@ class MatrixPerUser:
                         "TV": await self.log(NT_TV['tv']),
                         "CII": await self.log(CII),
                         "CNI": await self.log(CNI),
-                        "asset_code": asset
+                        "asset_code": asset_code
                     }, ignore_index=True)
-                # print(df)
-                # print("##################################")
-                # print(iterator, " time window added.")
                 current_time = current_time + timedelta(seconds=900)
         df.to_csv(self.path_csvs + "/" + str(source_account) + ".csv")
 
@@ -288,6 +257,7 @@ class MatrixPerUser:
         return False
 
     async def log(self, x):
+        return x
         if x < 0:
             return (-1) * math.log10((-1) * x) + 1
         elif x > 0:

@@ -8,7 +8,7 @@ from clasess.make_matrix_per_user import MatrixPerUser
 
 async def compute_user_working_capital(asset, opening_time, closing_time):
     db_handler = Database()
-    working_collection = asset + "_user_working_capital_selling_per_15_minuets"
+    working_collection = asset + "_correct_user_working_capital_selling_per_15_minuets"
     working_db = db_handler.select_another_db("stellar_result")
     operations = db_handler.select_collection(asset + "_bucket")
     UWC = userAmountIn15Minuets(operations, working_db, working_collection, asset, opening_time, closing_time)
@@ -64,13 +64,14 @@ async def makeMatrix(opening_time, closing_time):
         }
     }
     stellar_result = None
-    assets = ["eth", "btc"]
+    assets = ["btc", "eth"]
     matrix_creator = MatrixPerUser(collections, operations, assets, opening_time, closing_time)
     matrix_creator.query_on_users()
     await matrix_creator.handler_users()
 
 # clean_working_collection("native", "_change_in_inventory_per_15_minuets")
 loop = asy.get_event_loop()
+# loop.run_until_complete(compute_user_working_capital("btc", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
 loop.run_until_complete(makeMatrix("2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
 # loop.run_until_complete(clean_working_collection("native", "_change_in_inventory_per_15_minuets_part2"))
 loop.close()
