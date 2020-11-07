@@ -5,6 +5,17 @@ from clasess.user_amount_in_15_minuets_final import userAmountIn15Minuets
 from clasess.compute_cumulative_net_inventory_final import ComputeCNT
 from clasess.clean_result_collection import CleanCollection
 from clasess.make_matrix_per_user import MatrixPerUser
+from clasess.compute_TV_NT_CII_15_minuets import userTvNtCii
+
+
+async def compute_TV_NT_CII(asset, opening_time, closing_time):
+    db_handler = Database()
+    working_collection = asset + "_TV_NT_CII_per_15_minuets"
+    working_db = db_handler.select_another_db("stellar_result")
+    operations = db_handler.select_collection(asset + "_bucket")
+    UWC = userTvNtCii(operations, working_db, working_collection, asset, opening_time, closing_time)
+    UWC.get_users()
+    await UWC.handel_users()
 
 async def compute_user_working_capital(asset, opening_time, closing_time):
     db_handler = Database()
@@ -71,7 +82,9 @@ async def makeMatrix(opening_time, closing_time):
 
 # clean_working_collection("native", "_change_in_inventory_per_15_minuets")
 loop = asy.get_event_loop()
-# loop.run_until_complete(compute_user_working_capital("btc", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
-loop.run_until_complete(makeMatrix("2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
+
+# loop.run_until_complete(makeMatrix("2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
+loop.run_until_complete(compute_TV_NT_CII("btc", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
+
 # loop.run_until_complete(clean_working_collection("native", "_change_in_inventory_per_15_minuets_part2"))
 loop.close()
