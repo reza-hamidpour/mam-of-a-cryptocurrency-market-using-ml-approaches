@@ -12,10 +12,10 @@ async def compute_TV_NT_CII(asset, opening_time, closing_time):
     db_handler = Database()
     working_collection = asset + "_TV_NT_CII_per_15_minuets"
     working_db = db_handler.select_another_db("stellar_result")
-    operations = db_handler.select_collection(asset + "_bucket")
-    UWC = userTvNtCii(operations, working_db, working_collection, asset, opening_time, closing_time)
-    UWC.get_users()
-    await UWC.handel_users()
+    operations = working_db[asset + "_bucket"]
+    TV_NT_CII = userTvNtCii(operations, working_db, working_collection, asset, opening_time, closing_time)
+    TV_NT_CII.get_users()
+    await TV_NT_CII.handel_users()
 
 async def compute_user_working_capital(asset, opening_time, closing_time):
     db_handler = Database()
@@ -25,7 +25,6 @@ async def compute_user_working_capital(asset, opening_time, closing_time):
     UWC = userAmountIn15Minuets(operations, working_db, working_collection, asset, opening_time, closing_time)
     UWC.get_users()
     await UWC.handel_users()
-
 
 async def compute_change_in_inventory(asset, opening_time, closing_time):
     db_handler = Database()
@@ -37,7 +36,6 @@ async def compute_change_in_inventory(asset, opening_time, closing_time):
     ChangeInINvetory.get_users()
     await ChangeInINvetory.users_handler()
 
-
 # async def compute_cumulative_net_inventory(asset, opening_time, closing_time):
 #     db_handler = Database()
 #     working_collection = asset + "_cumulative_net_inventory_per_15_minuets"
@@ -47,7 +45,6 @@ async def compute_change_in_inventory(asset, opening_time, closing_time):
 #                      working_collection, opening_time, closing_time, asset)
 #     CNT.get_users()
 #     await CNT.handle_users()
-#
 #
 async def clean_working_collection(asset, wc_name):
     db_handler = Database()
@@ -84,7 +81,8 @@ async def makeMatrix(opening_time, closing_time):
 loop = asy.get_event_loop()
 
 # loop.run_until_complete(makeMatrix("2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
-loop.run_until_complete(compute_TV_NT_CII("btc", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
+# loop.run_until_complete(compute_TV_NT_CII("btc", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
+loop.run_until_complete(compute_TV_NT_CII("btc", "2019-10-29T00:00:00Z", "2019-12-15T14:26:38Z"))
 
 # loop.run_until_complete(clean_working_collection("native", "_change_in_inventory_per_15_minuets_part2"))
 loop.close()
