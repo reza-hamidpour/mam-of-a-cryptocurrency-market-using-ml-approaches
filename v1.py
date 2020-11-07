@@ -61,9 +61,22 @@ async def clean_working_collection(asset, wc_name):
 async def makeMatrix(opening_time, closing_time):
     db_handler = Database()
     stellar_result = db_handler.select_another_db("stellar_result")
-    operations = db_handler.select_collection("operations")
+    operations = stellar_result["eth_btc_users"]
+    collections = {
+        "eth": {
+            "uwc": stellar_result["eth_user_working_capital_selling_per_15_minuets"],
+            "cii": stellar_result["eth_change_in_inventory_per_15_minuets"],
+            "cni": stellar_result["eth_cumulative_net_inventory_per_15_minuets"]
+        },
+        "btc": {
+            "uwc": stellar_result["btc_user_working_capital_selling_per_15_minuets"],
+            "cii": stellar_result["btc_change_in_inventory_per_15_minuets"],
+            "cni": stellar_result["btc_cumulative_net_inventory_per_15_minuets"]
+        }
+    }
+    stellar_result = None
     assets = ["eth", "btc"]
-    matrix_creator = MatrixPerUser(stellar_result, operations, assets, opening_time, closing_time)
+    matrix_creator = MatrixPerUser(collections, operations, assets, opening_time, closing_time)
     matrix_creator.query_on_users()
     await matrix_creator.handler_users()
 
