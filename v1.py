@@ -82,7 +82,7 @@ loop = asy.get_event_loop()
 
 # loop.run_until_complete(makeMatrix("2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
 # loop.run_until_complete(compute_TV_NT_CII("btc", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
-loop.run_until_complete(compute_TV_NT_CII("btc", "2019-10-29T00:00:00Z", "2019-12-15T14:26:38Z"))
+loop.run_until_complete(compute_TV_NT_CII("eth", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
 
 # loop.run_until_complete(clean_working_collection("native", "_change_in_inventory_per_15_minuets_part2"))
 loop.close()

@@ -44,12 +44,24 @@ class userTvNtCii:
     async def handel_users(self):
         for user in self.users:
             print("user(" + str(user['_id']) + ") started.")
-            if self.number_of_users_added <= 0:
-                user_transactions = await self.load_user_transactions(user["_id"])
-                await self.async_compute_and_save_tv_tn(user["_id"], user_transactions)
+            check_user = await self.check_user_exists(user["_id"])
+            if check_user == False:
+               user_transactions = await self.load_user_transactions(user["_id"])
+               await self.async_compute_and_save_tv_tn(user["_id"], user_transactions)
             else:
-                self.number_of_users_added -= 1
-                print("Leave this user.")
+               print("Leave this user.")
+        print("Finish.")
+
+
+    async def check_user_exists(self, source_account):
+        query = {
+            "source_account": source_account
+        }
+        processed_users = self.working_collection.find_one(query)
+        check = False
+        if processed_users != None and len(list(processed_users)) > 0:
+            check = True
+        return check
 
     async def load_user_transactions(self, source_account):
         query = [
@@ -87,11 +99,11 @@ class userTvNtCii:
             if self.number_of_tasks > 10:
                 self.number_of_tasks = 0
                 await queue.join()
-                await asyncio.sleep(5)
         self.number_of_tasks = 0
         self.user_transactions = None
-        await queue.join()
-        tasks = []
+        if self.number_of_tasks > 0:
+            await queue.join()
+            tasks = []
 
     async def tv_tn_cii_computing(self, queue):
         obj = await queue.get()
@@ -116,7 +128,10 @@ class userTvNtCii:
         }
         await self.save_tv_and_nt_per_user_in_15_minuets(obj_result)
         # print("TV and NofT at time " + obj_result["time_window"] + " inserted.")
-        await queue.task_done()
+        try:
+            await queue.task_done()
+        except Exception as e:
+            pass
 
     async def long_or_short_position(self, transactions):
             long_positions_amount = 0.0
