@@ -151,7 +151,10 @@ class ComputeCNT:
             await self.save_CNI(obj)
             # print("Time Window ", end_time_window,  " inserted.")
             end_time_window = current_time + timedelta(seconds=900)
-        await queue.task_done()
+        try:
+            await queue.task_done()
+        except Exception as e:
+            pass
 
     async def get_comulative_change_inventory_for_period(self, transactions):
         cumulative_net_inventory = 0.0
