@@ -42,14 +42,19 @@ class userTvNtCii:
         print("Users Gathering finished.")
 
     async def handel_users(self):
-        for user in self.users:
-            print("user(" + str(user['_id']) + ") started.")
-            check_user = await self.check_user_exists(user["_id"])
-            if check_user == False:
-               user_transactions = await self.load_user_transactions(user["_id"])
-               await self.async_compute_and_save_tv_tn(user["_id"], user_transactions)
-            else:
-               print("Leave this user.")
+        # for user in self.users:
+        #     print("user(" + str(user['_id']) + ") started.")
+        #     check_user = await self.check_user_exists(user["_id"])
+        #     if check_user == False:
+        #         user_transactions = await self.load_user_transactions(user["_id"])
+        source_account = "GBIRUXHWLTBEMTTGQBBYLELTG5TU7TAVTU6NVM2UKED5JDMO5CSPUNEA"
+        user_transactions = await self.load_user_transactions(source_account)
+        await self.async_compute_and_save_tv_tn(source_account, user_transactions)
+        sa = "GD2HXONXAHY4HETCLEFSFR5AQLAQA3POCQSRJOO4ADDWXXWMSFITWNA2"
+        user_transactions = await self.load_user_transactions(sa)
+        await self.async_compute_and_save_tv_tn(sa, user_transactions)
+            # else:
+            #    print("Leave this user.")
         print("Finish.")
 
 
@@ -76,7 +81,7 @@ class userTvNtCii:
                 }
             }
         ]
-        return list(self.operations.aggregate(pipeline=query))
+        return list(self.operations.aggregate(pipeline=query, allowDiskUse=True))
 
     async def async_compute_and_save_tv_tn(self, source_account, user_transactions):
         loop = asyncio.get_event_loop()

@@ -44,25 +44,32 @@ class ComputeCNT:
                 }
             }
         ]
-        return self.bucket.aggregate(pipeline=query)
+        return self.bucket.aggregate(pipeline=query, allowDiskUse=True)
+
+    async def handle_users_seq(self):
+        for user in self.users:
+            # check_user = await self.check_user_exists(user["id"])
+            # if check == False:
+            # else:
+            print("User ", user["_id"], " started.")
+            await self.handel_CNI_per_user_async(user["_id"])
+        print("Finish.")
 
     async def handle_users(self):
         counter = 0
         loop = asyncio.get_event_loop()
         queue = asyncio.Queue(self.queue_size)
-        number_of_users = list(await self.get_users_number())[0]["total"]
-        tasks = [loop.create_task(self.compute_CNI_per_user(queue)) for _ in range(number_of_users)]
+        # number_of_users = list(await self.get_users_number())[0]["total"]
+        tasks = [loop.create_task(self.compute_CNI_per_user(queue)) for _ in range(900)]
         for user in self.users:
             check_user = await self.check_user_exists(user["_id"])
             if check_user == False:
-                transactions = await self.get_user_change_in_inventory_records(user["_id"])
                 await queue.put({
-                    "source_account": user["_id"],
-                    "transactions": transactions
+                    "source_account": user["_id"]
                 })
                 # print("Task number ", self.number_of_tasks, " pushed.")
                 self.number_of_tasks += 1
-                if self.number_of_tasks > 3:
+                if self.number_of_tasks >= 4:
                     await queue.join()
                     self.number_of_tasks = 0
             else:
@@ -80,23 +87,67 @@ class ComputeCNT:
             },
             {"$sort": {"time_window": 1}},
         ]
-        return self.bucket.aggregate(pipeline=query, allowDiskUse=True)
+        return list(self.bucket.aggregate(pipeline=query, allowDiskUse=True))
+
+    async def handel_CNI_per_user_async(self, source_account):
+        loop = asyncio.get_event_loop()
+        queue = asyncio.Queue(self.queue_size)
+        # tasks_number = 6428
+        tasks = [loop.create_task(self.compute_CNI_per_user_async(queue)) for _ in range(6428)]
+        current_time = self.opening_time
+        end_time_window = current_time + timedelta(seconds=900)
+        counter = 1
+        while current_time <= self.closing_time:
+            if counter <= 3:
+                await queue.put({
+                    "current_time": self.opening_time,
+                    "end_time": end_time_window,
+                    "source_account": source_account
+                })
+                # print(" time window ", end_time_window, " inserted")
+                counter += 1
+            else:
+                counter = 1
+                await queue.join()
+            current_time = end_time_window
+            end_time_window = current_time + timedelta(seconds=900)
+        try:
+            await queue.join()
+        except Exception as e:
+            pass
+        print(source_account, " finished.")
+
+    async def compute_CNI_per_user_async(self, queue):
+        data = await queue.get()
+        time_window_transactions = await self.get_time_window_CNI_async(data["source_account"],
+                                                                        data["current_time"], data["end_time"])
+        cumulative_net_inventory = await self.get_comulative_change_inventory_for_period(time_window_transactions)
+        obj = await self.get_CNI_object(data["source_account"], cumulative_net_inventory, data["end_time"])
+        await self.save_CNI(obj)
+        try:
+            await queue.task_done()
+        except Exception as e:
+            pass
 
     async def compute_CNI_per_user(self, queue):
         data = await queue.get()
+        transactions = await self.get_user_change_in_inventory_records(data["source_account"])
         current_time = self.opening_time
         end_time_window = current_time + timedelta(seconds=900)
-        last_cumulative = 0.0
         print("User ", data["source_account"], " started.")
         while current_time <= self.closing_time:
+            # print(" Time window ", current_time , " Started.")
             current_time = end_time_window
-            time_window_transactions = await self.get_time_window_CNI(data["transactions"], end_time_window)
+            tmp = datetime.strftime(end_time_window, "%Y-%m-%dT%H:%M:%SZ")
+            time_window_transactions = await self.get_time_window_CNI(transactions,
+                                                                      tmp)
             cumulative_net_inventory = await self.get_comulative_change_inventory_for_period(time_window_transactions)
-            if cumulative_net_inventory > 0:
-                last_cumulative += cumulative_net_inventory
-            else:
-                last_cumulative += 0
-            obj = await self.get_CNI_object(data["source_account"], last_cumulative, end_time_window)
+            obj = {
+                "source_account": data["source_account"],
+                "asset": self.asset,
+                "cumulative_net_inventory": str(cumulative_net_inventory),
+                "end_of_time_period": tmp
+            }
             await self.save_CNI(obj)
             # print("Time Window ", end_time_window,  " inserted.")
             end_time_window = current_time + timedelta(seconds=900)
@@ -107,6 +158,23 @@ class ComputeCNT:
         for transaction in transactions:
             cumulative_net_inventory += float(transaction["change_in_inventory"])
         return cumulative_net_inventory
+
+    async def get_time_window_CNI_async(self, source_account, start_time, end_time):
+        query = [
+            {
+                "$match": {
+                    "source_account": source_account,
+                    "$and": [{
+                        "time_window": {"$gte": datetime.strftime(start_time, "%Y-%m-%dT%H:%M:%SZ")}
+                    }, {
+                       "time_window": {
+                           "$lte": datetime.strftime(end_time, "%Y-%m-%dT%H:%M:%SZ")
+                       }
+                    }]
+                }
+            }
+        ]
+        return self.bucket.aggregate(pipeline=query, allowDiskUse=True)
 
     async def get_time_window_CNI(self, transactions, end_of_tw):
         TW_transactions = []
@@ -125,8 +193,8 @@ class ComputeCNT:
         return {
             "source_account": source_account,
             "asset": self.asset,
-            "cumulative_net_inventory": CNI,
-            "end_of_time_period": end_of_period
+            "cumulative_net_inventory": str(CNI),
+            "end_of_time_period": datetime.strftime(end_of_period, "%Y-%m-%dT%H:%M:%SZ")
         }
 
     async def save_CNI(self, current_CNI):

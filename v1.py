@@ -36,16 +36,16 @@ async def compute_change_in_inventory(asset, opening_time, closing_time):
     ChangeInINvetory.get_users()
     await ChangeInINvetory.users_handler()
 
-# async def compute_cumulative_net_inventory(asset, opening_time, closing_time):
-#     db_handler = Database()
-#     working_collection = asset + "_cumulative_net_inventory_per_15_minuets"
-#     working_db = db_handler.select_another_db("stellar_result")
-#     operations = working_db[asset + "_change_in_inventory_per_15_minuets"]
-#     CNT = ComputeCNT(operations, working_db,
-#                      working_collection, opening_time, closing_time, asset)
-#     CNT.get_users()
-#     await CNT.handle_users()
-#
+async def compute_cumulative_net_inventory(asset, opening_time, closing_time):
+    db_handler = Database()
+    working_collection = asset + "_CNI_per_15_minuets"
+    working_db = db_handler.select_another_db("stellar_result")
+    operations = working_db[asset + "_TV_NT_CII_per_15_minuets"]
+    CNT = ComputeCNT(operations, working_db,
+                     working_collection, opening_time, closing_time, asset)
+    CNT.get_users()
+    await CNT.handle_users()
+
 async def clean_working_collection(asset, wc_name):
     db_handler = Database()
     stellar_result = db_handler.select_another_db("stellar_result")
@@ -81,8 +81,7 @@ async def makeMatrix(opening_time, closing_time):
 loop = asy.get_event_loop()
 
 # loop.run_until_complete(makeMatrix("2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
-# loop.run_until_complete(compute_TV_NT_CII("btc", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
-loop.run_until_complete(compute_TV_NT_CII("eth", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
-
+loop.run_until_complete(compute_cumulative_net_inventory("btc", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
+# loop.run_until_complete(compute_TV_NT_CII("eth", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
 # loop.run_until_complete(clean_working_collection("native", "_change_in_inventory_per_15_minuets_part2"))
 loop.close()

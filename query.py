@@ -118,3 +118,17 @@ query = [
               {"time_window": {'$lte': '2019-10-09T18:00:38.000000Z'}}]}
 
 ]
+
+query = [
+            {
+                "$group": {
+                    "_id": "$source_account"
+                }
+            },
+            {
+                "$group": {
+                    "_id": null,
+                    "total": {"$sum": 1}
+                }
+            }
+        ]
