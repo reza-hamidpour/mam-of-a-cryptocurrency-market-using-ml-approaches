@@ -131,6 +131,7 @@ class ComputeCNT:
 
     async def compute_CNI_per_user(self, queue):
         data = await queue.get()
+        #data["source_account"] = "GC5KA2E4BBO2TU3G6NL6GW34CRNN3BTD6KRGNZ6ULNBJCEZ2US5ZNHTT"
         transactions = await self.get_user_change_in_inventory_records(data["source_account"])
         current_time = self.opening_time
         end_time_window = current_time + timedelta(seconds=900)
@@ -189,7 +190,6 @@ class ComputeCNT:
                 break_after_2 -= 1
                 if break_after_2 == 0:
                     break
-                continue
         return TW_transactions
 
     async def get_CNI_object(self, source_account, CNI, end_of_period):

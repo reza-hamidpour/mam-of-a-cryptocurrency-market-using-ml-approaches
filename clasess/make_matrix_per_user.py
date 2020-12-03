@@ -8,46 +8,45 @@ from urllib3.util import current_time
 
 
 class MatrixPerUser:
-    users           = None
-    source_account  = None
-    queue_size      = 2
-    NT_TV_records   = {}
-    CNI_records     = {}
-    CII_records     = {}
-    path_csvs = "eth_btc_csv_check"
+    users = None
+    source_account = None
+    queue_size = 2
+    NT_TV_CII_records = {}
+    CNI_records = {}
+    path_csvs = "btc_csv"
 
     def __init__(self, collections, operations, assets, opening_time, closing_time):
         self.collections                         = collections
         self.operations                 = operations
         self.assets                     = assets
         for asset in self.assets:
-            self.NT_TV_records[asset]   = None
-            self.CNI_records[asset]     = None
-            self.CII_records[asset]     = None
+            self.NT_TV_CII_records[asset] = None
+            self.CNI_records[asset] = None
         self.opening_time               = datetime.strptime(opening_time, "%Y-%m-%dT%H:%M:%SZ")
         self.closing_time               = datetime.strptime(closing_time, "%Y-%m-%dT%H:%M:%SZ")
         difference_between_o_and_c      = (self.closing_time - self.opening_time).total_seconds()
         self.number_of_tasks            = int(math.ceil(difference_between_o_and_c / 900.0))
 
     def query_on_users(self):
-        query = [
-            {"$group": {
-                "_id": "$_id",
-            }}
-        ]
         # query = [
         #     {"$group": {
-        #         "_id": "$source_account"
-        #     }
-        #     },
-        #     {"$sort": {"_id": 1}}
+        #         "_id": "$_id",
+        #     }}
         # ]
+        query = [
+            {"$group": {
+                "_id": "$source_account"
+            }
+            }
+        ]
         self.users = self.operations.aggregate(pipeline=query, allowDiskUse=True)
 
     async def handler_users(self):
-        for user in self.users:
-          print("Starting ", user["_id"], " ... .")
-          await self.time_window_handler(user["_id"])
+        #for user in self.users:
+        #  print("Starting ", user["_id"], " ... .")
+        #  await self.time_window_handler(user["_id"])
+        print("use GC5KA2E4BBO2TU3G6NL6GW34CRNN3BTD6KRGNZ6ULNBJCEZ2US5ZNHTT Started.")
+        await self.time_window_handler("GC5KA2E4BBO2TU3G6NL6GW34CRNN3BTD6KRGNZ6ULNBJCEZ2US5ZNHTT")
         print("Finish")
 
     async def time_window_handler(self, source_account):
@@ -59,41 +58,41 @@ class MatrixPerUser:
                                    "TV",
                                    "CII",
                                    "CNI",
-                                   "asset_code"])
+                                   # "asset_code"
+                                   ])
         current_time = self.opening_time
         while current_time <= self.closing_time:
             for asset in self.assets:
                 unixtime = current_time.timestamp()
-                asset_code = 1
+                # asset_code = 1
                 # if obj["asset"] == "native":
                 #     asset_code = 1
-                if asset == "btc":
-                    asset_code = 2
-                elif asset == "eth":
-                    asset_code = 3
+                # if asset == "btc":
+                asset_code = 2
+                # elif asset == "eth":
+                #     asset_code = 3
                 # print("Task creating... .")
                 RAM_SEARCH = True
                 if iterator == 10 or iterator == 0:
                     RAM_SEARCH = False
                     iterator = 0
                 iterator += 1
-                NT_TV = await self.load_NT_TV_user(source_account, asset, current_time, RAM_SEARCH)
-                CII = await self.load_CII_user(source_account, asset, current_time, RAM_SEARCH)
+                NT_TV_CII = await self.load_NT_TV_CII_user(source_account, asset, current_time, RAM_SEARCH)
+                # CII = await self.load_CII_user(source_account, asset, current_time, RAM_SEARCH)
                 CNI = await self.load_CNI_user(source_account, asset, current_time, RAM_SEARCH)
                 # print("Waiting for tasks... .")
                 df = df.append(
                     {
                         "unixtime": str(unixtime),
                         "Date": datetime.strftime(current_time, "%Y-%m-%dT%H:%M:%S.%fZ"),
-                        "NT": await self.log(NT_TV['nt']),
-                        "TV": await self.log(NT_TV['tv']),
-                        "CII": await self.log(CII),
+                        "NT": await self.log(NT_TV_CII['nt']),
+                        "TV": await self.log(NT_TV_CII['tv']),
+                        "CII": await self.log(NT_TV_CII['cii']),
                         "CNI": await self.log(CNI),
                         "asset_code": asset_code
-                    }, ignore_index=True)
+                    }, ignore_index=False)
                 current_time = current_time + timedelta(seconds=900)
         df.to_csv(self.path_csvs + "/" + str(source_account) + ".csv")
-
 
     async def multitasking_time_window_handler(self, source_account):
         iterator = 0
@@ -152,23 +151,20 @@ class MatrixPerUser:
         print("Task ", obj["asset"], " at ", obj["time_window"], " pushed.")
         queue.task_done()
 
-    async def load_NT_TV_user(self, source_account, asset, tw, ram_search):
-        if self.NT_TV_records[asset] != None and ram_search == True:
-            result = await self.search_in_RAM(self.NT_TV_records,
+    async def load_NT_TV_CII_user(self, source_account, asset, tw, ram_search):
+        if self.NT_TV_CII_records[asset] != None and ram_search == True:
+            result = await self.search_in_RAM(self.NT_TV_CII_records,
                                               asset,
                                               tw,
                                               "time_window")
             if result != False:
                 return {
                     "nt": result["number_of_trades"],
-                    "tv": result["trading_volume"]
+                    "tv": result["trading_volume"],
+                    "cii": result["change_in_inventory"]
                 }
-        elif ram_search == True:
-            return {
-                "nt": 0,
-                "tv": 0.0
-            }
-        self.NT_TV_records[asset] = None
+
+        self.NT_TV_CII_records[asset] = None
         next_tw = tw + timedelta(seconds=9000)
         query = [
             {"$match": {
@@ -180,13 +176,15 @@ class MatrixPerUser:
             }}
         ]
 
-        self.NT_TV_records[asset] = self.collections[asset]["uwc"].aggregate(pipeline=query)
-        result = {"nt": 0.0,
-                  "tv": 0.0}
-        transaction = list(self.NT_TV_records[asset])
+        self.NT_TV_CII_records[asset] = self.collections[asset]["tv_nt_cii"].aggregate(pipeline=query)
+        result = {"nt": "",
+                  "tv": "",
+                  "cii": ""}
+        transaction = list(self.NT_TV_CII_records[asset])
         if len(transaction) > 0:
             result["nt"] = transaction[0]["number_of_trades"]
             result["tv"] = transaction[0]["trading_volume"]
+            result["cii"] = transaction[0]["change_in_inventory"]
             transaction = None
         return result
 
@@ -227,8 +225,6 @@ class MatrixPerUser:
                                                                 "cumulative_net_inventory")
             if cumulative_net_inventory != False :
                 return cumulative_net_inventory
-        elif ram_search == True:
-            return 0.0
         self.CNI_records[asset] = None
         next_tw = tw + timedelta(seconds=9000) # get 10 records
         query = [
@@ -259,8 +255,8 @@ class MatrixPerUser:
     async def log(self, x):
         return x
         if x < 0:
-            return (-1) * math.log10((-1) * x) + 1
+            return (-1) * math.log10( (-1) * float(x)) + 1
         elif x > 0:
-            return math.log10(x) + 1
+            return math.log10( float(x) ) + 1
         else:
             return 0

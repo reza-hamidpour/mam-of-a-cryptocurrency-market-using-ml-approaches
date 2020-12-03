@@ -38,7 +38,7 @@ async def compute_change_in_inventory(asset, opening_time, closing_time):
 
 async def compute_cumulative_net_inventory(asset, opening_time, closing_time):
     db_handler = Database()
-    working_collection = asset + "_CNI_per_15_minuets"
+    working_collection = asset + "_CNI_per_15_minuets_bugfix"
     working_db = db_handler.select_another_db("stellar_result")
     operations = working_db[asset + "_TV_NT_CII_per_15_minuets"]
     CNT = ComputeCNT(operations, working_db,
@@ -58,21 +58,19 @@ async def clean_working_collection(asset, wc_name):
 async def makeMatrix(opening_time, closing_time):
     db_handler = Database()
     stellar_result = db_handler.select_another_db("stellar_result")
-    operations = stellar_result["eth_btc_users"]
+    operations = stellar_result["btc_bucket"]
     collections = {
         "eth": {
-            "uwc": stellar_result["eth_user_working_capital_selling_per_15_minuets"],
-            "cii": stellar_result["eth_change_in_inventory_per_15_minuets"],
-            "cni": stellar_result["eth_cumulative_net_inventory_per_15_minuets"]
+            "tv_nt_cii": stellar_result["eth_TV_NT_CII_per_15_minuets"],
+            "cni": stellar_result["eth_CNI_per_15_minuets"]
         },
         "btc": {
-            "uwc": stellar_result["btc_user_working_capital_selling_per_15_minuets"],
-            "cii": stellar_result["btc_change_in_inventory_per_15_minuets"],
-            "cni": stellar_result["btc_cumulative_net_inventory_per_15_minuets"]
+            "tv_nt_cii": stellar_result["btc_TV_NT_CII_per_15_minuets"],
+            "cni": stellar_result["btc_CNI_per_15_minuets"]
         }
     }
     stellar_result = None
-    assets = ["btc", "eth"]
+    assets = ["btc"]
     matrix_creator = MatrixPerUser(collections, operations, assets, opening_time, closing_time)
     matrix_creator.query_on_users()
     await matrix_creator.handler_users()
@@ -80,8 +78,8 @@ async def makeMatrix(opening_time, closing_time):
 # clean_working_collection("native", "_change_in_inventory_per_15_minuets")
 loop = asy.get_event_loop()
 
-# loop.run_until_complete(makeMatrix("2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
-loop.run_until_complete(compute_cumulative_net_inventory("btc", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
-# loop.run_until_complete(compute_TV_NT_CII("eth", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
+loop.run_until_complete(makeMatrix("2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
+#loop.run_until_complete(compute_cumulative_net_inventory("btc", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
+# loop.run_until_complete(compute_TV_NT_CII("native", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
 # loop.run_until_complete(clean_working_collection("native", "_change_in_inventory_per_15_minuets_part2"))
 loop.close()
