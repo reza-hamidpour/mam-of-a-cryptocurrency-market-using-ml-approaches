@@ -90,7 +90,7 @@ class MatrixPerUser:
                         "CII": await self.log(NT_TV_CII['cii']),
                         "CNI": await self.log(CNI),
                         "asset_code": asset_code
-                    }, ignore_index=False)
+                    }, ignore_index=True)
                 current_time = current_time + timedelta(seconds=900)
         df.to_csv(self.path_csvs + "/" + str(source_account) + ".csv")
 
@@ -211,7 +211,7 @@ class MatrixPerUser:
         ]
         self.CII_records[asset] = self.collections[asset]["cii"].aggregate(pipeline=query)
         transaction = list(self.CII_records[asset])
-        change_in_inventory = 0.0
+        change_in_inventory = "0.0"
         if len(transaction) > 0:
             change_in_inventory = transaction[0]["change_in_inventory"]
         return change_in_inventory
