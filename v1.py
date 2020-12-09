@@ -58,7 +58,7 @@ async def clean_working_collection(asset, wc_name):
 async def makeMatrix(opening_time, closing_time):
     db_handler = Database()
     stellar_result = db_handler.select_another_db("stellar_result")
-    operations = stellar_result["btc_bucket"]
+    operations = stellar_result["operations"]
     collections = {
         "eth": {
             "tv_nt_cii": stellar_result["eth_TV_NT_CII_per_15_minuets"],

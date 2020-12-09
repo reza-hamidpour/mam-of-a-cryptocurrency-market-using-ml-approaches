@@ -3,7 +3,7 @@ from datetime import timedelta
 import pandas as pd
 import asyncio
 import math
-
+import os
 from urllib3.util import current_time
 
 
@@ -13,8 +13,8 @@ class MatrixPerUser:
     queue_size = 2
     NT_TV_CII_records = {}
     CNI_records = {}
-    path_csvs = "btc_csv"
-
+    path_csvs = "eth_btc_csv"
+    dir_path = "/home/reza/Desktop/preprocessing/mam-of-a-cryptocurrency-market-using-ml-approaches/"
     def __init__(self, collections, operations, assets, opening_time, closing_time):
         self.collections                         = collections
         self.operations                 = operations
@@ -35,19 +35,27 @@ class MatrixPerUser:
         # ]
         query = [
             {"$group": {
-                "_id": "$source_account"
+                "_id": "$_id"
             }
             }
         ]
         self.users = self.operations.aggregate(pipeline=query, allowDiskUse=True)
 
     async def handler_users(self):
-        #for user in self.users:
-        #  print("Starting ", user["_id"], " ... .")
-        #  await self.time_window_handler(user["_id"])
-        print("use GC5KA2E4BBO2TU3G6NL6GW34CRNN3BTD6KRGNZ6ULNBJCEZ2US5ZNHTT Started.")
-        await self.time_window_handler("GC5KA2E4BBO2TU3G6NL6GW34CRNN3BTD6KRGNZ6ULNBJCEZ2US5ZNHTT")
+        for user in self.users:
+         print("Starting ", user["_id"], " ... .")
+         check_user = self.check_user_exists(user["_id"])
+         if  check_user == False:
+            await self.time_window_handler(user["_id"])
+#             print("Start")
+         else:
+            print("Leave this user.")
+        # print("use GC5KA2E4BBO2TU3G6NL6GW34CRNN3BTD6KRGNZ6ULNBJCEZ2US5ZNHTT Started.")
+        # await self.time_window_handler("GC5KA2E4BBO2TU3G6NL6GW34CRNN3BTD6KRGNZ6ULNBJCEZ2US5ZNHTT")
         print("Finish")
+
+    def check_user_exists(self, file_name ):
+        return os.path.isfile(  self.dir_path +  self.path_csvs + "/" + str(file_name) + ".csv")
 
     async def time_window_handler(self, source_account):
         iterator = 0
@@ -64,13 +72,13 @@ class MatrixPerUser:
         while current_time <= self.closing_time:
             for asset in self.assets:
                 unixtime = current_time.timestamp()
-                # asset_code = 1
-                # if obj["asset"] == "native":
-                #     asset_code = 1
-                # if asset == "btc":
-                asset_code = 2
-                # elif asset == "eth":
-                #     asset_code = 3
+                asset_code = 1
+                if asset == "native":
+                    asset_code = 1
+                elif asset == "btc":
+                    asset_code = 2
+                elif asset == "eth":
+                    asset_code = 3
                 # print("Task creating... .")
                 RAM_SEARCH = True
                 if iterator == 10 or iterator == 0:
@@ -231,8 +239,8 @@ class MatrixPerUser:
             {"$match": {
             "source_account"    : source_account,
             "end_of_time_period": {
-                "$gte": tw,
-                "$lte": next_tw
+                "$gte": datetime.strftime(tw, "%Y-%m-%dT%H:%M:%S.%fZ"),
+                "$lte": datetime.strftime(next_tw, "%Y-%m-%dT%H:%M:%S.%fZ")
             }
         }}
         ]
