@@ -70,7 +70,7 @@ async def makeMatrix(opening_time, closing_time):
         }
     }
     stellar_result = None
-    assets = ["btc"]
+    assets = ["btc", "eth"]
     matrix_creator = MatrixPerUser(collections, operations, assets, opening_time, closing_time)
     matrix_creator.query_on_users()
     await matrix_creator.handler_users()
