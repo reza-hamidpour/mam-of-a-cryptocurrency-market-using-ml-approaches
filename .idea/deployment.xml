@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" autoUpload="Always" serverName="reza@172.21.51.114:22 password" remoteFilesAllowedToDisappearOnAutoupload="false">
+    <serverData>
+      <paths name="reza@172.21.51.114:22 password">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/reza/Desktop/preprocessing/mam-of-a-cryptocurrency-market-using-ml-approaches" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
+  </component>
+</project>

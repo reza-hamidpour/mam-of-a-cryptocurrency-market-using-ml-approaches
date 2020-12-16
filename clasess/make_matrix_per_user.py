@@ -47,11 +47,8 @@ class MatrixPerUser:
          check_user = self.check_user_exists(user["_id"])
          if  check_user == False:
             await self.time_window_handler(user["_id"])
-#             print("Start")
          else:
             print("Leave this user.")
-        # print("use GC5KA2E4BBO2TU3G6NL6GW34CRNN3BTD6KRGNZ6ULNBJCEZ2US5ZNHTT Started.")
-        # await self.time_window_handler("GC5KA2E4BBO2TU3G6NL6GW34CRNN3BTD6KRGNZ6ULNBJCEZ2US5ZNHTT")
         print("Finish")
 
     def check_user_exists(self, file_name ):
@@ -185,9 +182,9 @@ class MatrixPerUser:
         ]
 
         self.NT_TV_CII_records[asset] = self.collections[asset]["tv_nt_cii"].aggregate(pipeline=query)
-        result = {"nt": "",
-                  "tv": "",
-                  "cii": ""}
+        result = {"nt": "0",
+                  "tv": "0.0",
+                  "cii": "0.0"}
         transaction = list(self.NT_TV_CII_records[asset])
         if len(transaction) > 0:
             result["nt"] = transaction[0]["number_of_trades"]
