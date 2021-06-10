@@ -12,9 +12,9 @@ import sys
 
 class DistaceMatrix:
 
-    path_dataset = "/home/reza/Clustering/Dataset"
-    path_save = "/home/reza/Clustering/"
-    distance_matrics_name = "distance_matrix_eth_btc_full_user.csv"
+    path_dataset = "./Dataset"
+    path_save = "dataset/"
+    distance_matrics_name = "separated_users_distance_matrix_eth_btc_500_users_normalized.csv"
     users = []
     my_series = []
     distance_matrix = None
@@ -29,17 +29,19 @@ class DistaceMatrix:
         # await self.calculate_distance_matrix()
         self.__task_handler()
         self.save_our_matrix()
-        #result = self.hierachical_clustering(self.distance_matrix, "complete")
+        result = self.hierachical_clustering(self.distance_matrix, "complete")
 
     def load_dataset(self):
         print("Gathering data phase... ")
+        print("Normalizing Dataset.")
         for dirname, filename, files in os.walk(self.path_dataset):
             for file in files:
                 user = pd.read_csv( self.path_dataset + "/" + file, sep=",", header=[0, 1, 2, 3, 4, 5, 6])
+                # user = user.interpolate()
                 user_id = os.path.splitext(os.path.basename(file))[0]
                 user.columns = ["id", "unixtime", "Date", "NT", "TV", "CII", "CNI", "asset_code"]
                 user.drop('unixtime', inplace=True, axis=1)
-                # user.drop('Date', inplace=True, axis=1)
+                user.drop('id', inplace=True, axis=1)
                 user["source_account"] = user_id
                 user["Date"] = pd.to_datetime([dt for dt in user["Date"].squeeze().tolist()], format="%Y-%m-%dT%H:%M:%S")
                 user = user.set_index("Date")
@@ -48,12 +50,16 @@ class DistaceMatrix:
 
     def prepare_matrix(self):
         print("Preparing Dataset into standard form...")
+        self.users = pd.concat(self.users)
+        self.users = self.users.reset_index()
+        self.users = self.users.set_index(["Date", "source_account"])
+        self.users = self.users.groupby("source_account")
         for user in self.users:
-            self.my_series.append(user[["NT", "TV", "CII", "CNI"]].values)
-
+            self.my_series.append(user[1].values)
+        self.users = None
         for i in range(len(self.my_series)):
             length = len(self.my_series[i])
-            self.my_series[i] = self.my_series[i].reshape((length, 4))
+            self.my_series[i] = self.my_series[i].reshape((length, 5))
 
     def __task_handler(self):
         mangers = Manager()
@@ -96,8 +102,8 @@ class DistaceMatrix:
             print(f"Time series {i} finished at {datetime.now()}")
             for k in range(self.num_cpu):
                 consumers[k].terminate()
-            #if i >= 500:
-            #  break 
+            if i >= 500:
+             break
         print("Distance matrix created successfully.")
 
     def task_producer(self, index_i, qu):
@@ -149,7 +155,7 @@ class DistaceMatrix:
             Z = ward(dist_mat)
         fig = plt.figure(figsize=(16, 8))
         dn = dendrogram(Z)
-        plt.savefig(self.path_save + "hierachical_clustering.png")
+        plt.savefig(self.path_save + "separated_500_users_hierachical_clustering.png")
         plt.title(f" BTC AND ETH Dendogram plot with {method}.")
         plt.show()
         return Z

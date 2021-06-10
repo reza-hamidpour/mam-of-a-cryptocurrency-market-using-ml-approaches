@@ -1,1 +1,8 @@
 Dataset
+Dataset/
+__pycache__
+clustering_plots
+dataset
+complete_method_dendogram_500_users.png
+complete_method_dendogram_500_users_normalized.png
+dataset/
