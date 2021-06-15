@@ -8,29 +8,32 @@ import os
 from minisom import MiniSom
 import math
 from sklearn.preprocessing import MinMaxScaler
+import gc
 
 
 class Stellar_dataset_clustering:
     dataset_path = "/home/reza/Clustering/Result_code/mam-of-a-cryptocurrency-market-using-ml-approaches/dataset/"
     path_dataset = "./Dataset"
-    matrics_file_name = "separated_users_distance_matrix_eth_btc_all_users_normalized.csv"
+    matrics_file_name = "separated_users_distance_matrix_eth_btc_500_users_normalized.csv"
     distance_matrics = None
-    plot_path = "/home/reza/Clustering/Result_code/mam-of-a-cryptocurrency-market-using-ml-approaches/clustering_plots/smo_results/"
+    plot_path = "/home/reza/Clustering/Result_code/mam-of-a-cryptocurrency-market-using-ml-approaches/clustering_plots/kmeans/"
     num_series = 500
     users = []
     my_series = []
+    series = []
+
 
     def process_handler(self):
-        # self.load_matrics()
-        self.load_dataset()
+        #self.load_matrics()
+         self.load_dataset()
 
         # print("Checking series...")
         # self.check_series()
 
-        print("Loading dataset into clustering method")
-        # self.heirachical_clustering(self.distance_matrics, "complete", "normalized_complete_method_dendogram_500_users")
+        #print("Loading dataset into clustering method")
+        #self.heirachical_clustering(self.distance_matrics, "average", "normalized_average_method_dendogram_all_users")
         # self.smo_clustering("som_clustering_all_users_1-0_0-2")
-        self.kmeans_clustering("kmeans_clustering_700_users_num_clu_4")
+         self.kmeans_clustering("without_transform_kmeans_clustering_500_users_num_clu_4")
 
     def load_dataset(self):
         print("Gathering data phase... ")
@@ -46,29 +49,37 @@ class Stellar_dataset_clustering:
                 user["Date"] = pd.to_datetime([dt for dt in user["Date"].squeeze().tolist()], format="%Y-%m-%dT%H:%M:%S")
                 user = user.set_index("Date")
                 self.users.append(user.loc['2019-10-15':'2019-11-15'])
+        del dirname, filename, files, file, user
+
         self.users = pd.concat(self.users)
         self.users = self.users.reset_index()
         self.users = self.users.set_index(["Date", "source_account"])
         self.users = self.users.groupby("source_account")
-        series = []
         for user in self.users:
-            series.append(user[1].values)
-        for i in range(len(series)):
+            tmp = user[1].reset_index()
+            tmp_ = tmp[["Date", "NT", "TV", "CII", "CNI", "asset_code"]]
+            tmp_ = tmp_.set_index("Date")
+            self.series.append(tmp_)
+        del self.users, tmp, user
+
+        for i in range(len(self.series)):
+            self.my_series.append(self.series[i].values)
+        for i in range(len(self.my_series)):
             scaler = MinMaxScaler()
-            tmp = MinMaxScaler().fit_transform(series[i])
+            tmp = MinMaxScaler().fit_transform(self.my_series[i])
             self.my_series.append(tmp.reshape(len(tmp), 5))
-        self.my_series = self.my_series[:500]
+        del scaler, tmp
+        self.my_series = self.my_series[:200]
         print(f"Number of series {len(self.my_series)}")
         print("Data gathered successfully.")
+        gc.collect()
 
     def load_matrics(self):
         print("Loading dataset into Pandas... ")
-        # self.distance_matrics = pd.Dataframe(np.loadtxt(self.dataset_path + self.matrics_file_name, 'float', delimiter=","))
-        self.my_series = pd.read_csv(self.dataset_path + self.matrics_file_name, sep=",", header=None)
-        self.my_series = self.my_series.iloc[:500,:500].values
-        # self.distance_matrics = self.distance_matrics.interpolate(method="linear", limit_direction="forward")
+        self.distance_matrics = pd.read_csv(self.dataset_path + self.matrics_file_name, sep=",", header=None)
+        # self.my_series = self.my_series.iloc[:500,:500].values
+        self.distance_matrics = self.distance_matrics.interpolate(method="linear", limit_direction="forward")
         print("Data loaded successfully.")
-        # print(self.distance_matrics)
 
     def check_series(self):
         default_len = len(self.my_series[0])
@@ -103,7 +114,9 @@ class Stellar_dataset_clustering:
             Z = ward(dist_mat)
         fig = plt.figure(figsize=(50, 19))
         dn = dendrogram(Z, leaf_rotation=90)
-        # plt.axhline(y=6, color='r', linestyle='--')
+        plt.axhline(y=2900000000000, color='r', linestyle='--')
+        plt.axhline(y=5999000000000, color='gray', linestyle='--')
+
         plt.savefig(self.plot_path + plot_name + ".png")
         print(f"Plot {plot_name} saved.")
         plt.title(f" BTC AND ETH Dendogram plot with {method}.")
@@ -122,26 +135,32 @@ class Stellar_dataset_clustering:
 
     def kmeans_plot(self, labels, n_clusters, plot_name):
         print("Preparing cluster plots...")
-        som_y = math.ceil(math.sqrt(math.sqrt(len(self.my_series))))
-        plot_count = math.ceil(math.sqrt(n_clusters))
+        fig, axs = plt.subplots(2, 2, figsize=(25, 25))
+        fig.suptitle(f"Clustering {len(self.my_series)} users in Stellar network")
+        cluster = [
+            [],
+            [],
+            [],
+            []
+        ]
+        ax_index = [[0, 0],
+                    [0, 1],
+                    [1, 0],
+                    [1, 1]]
+        for i in range(len(labels)):
+            axs[ax_index[labels[i]][0], ax_index[labels[i]][1] ].plot( self.series[i]["NT"], c="gray", alpha=0.4)
+            cluster[labels[i]].append(self.series[i]["NT"])
 
-        fig, axs = plt.subplots(plot_count, plot_count, figsize=(25,25))
-        fig.suptitle("Clustering 500 users in Stellar network")
-        row_i = 0
-        column_j = 0
-        cluster = []
-        for label in set(labels):
-            for i in range(len(labels)):
-                if labels[i] == label:
-                    axs[row_i,column_j].plot(self.my_series[i], c="gray", alpha=0.4)
-                    cluster.append(self.my_series[i])
-            if len(cluster) > 0:
-                axs[row_i, column_j].plot(np.average(np.vstack(cluster), axis=0), c="red")
-            axs[row_i, column_j].set_title(f"Cluster {str(row_i * som_y + column_j)}")
-            column_j += 1
-            if column_j % plot_count == 0:
-                row_i += 1
-                column_j =0
+        axs[0, 0].plot(np.average(np.vstack(cluster[0]), axis=0), c="red")
+        axs[0, 1].plot(np.average(np.vstack(cluster[1]), axis=0), c="red")
+        axs[1, 0].plot(np.average(np.vstack(cluster[2]), axis=0), c="red")
+        axs[1, 1].plot(np.average(np.vstack(cluster[3]), axis=0), c="red")
+
+        axs[0, 0].set_title(f"Cluster 0")
+        axs[0, 1].set_title(f"Cluster 1")
+        axs[1, 0].set_title(f"Cluster 2")
+        axs[1, 1].set_title(f"Cluster 3")
+
         plt.savefig(self.plot_path + plot_name + ".png")
         plt.show()
         print("Plots drew successfully.")
@@ -168,5 +187,6 @@ class Stellar_dataset_clustering:
                 axs[cluster].set_title(f"Cluster {cluster_number}")
         plt.savefig(self.plot_path + plot_name + ".png")
         plt.show()
+
 
 
