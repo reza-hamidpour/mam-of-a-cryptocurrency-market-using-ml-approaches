@@ -1,40 +1,43 @@
 from scipy.cluster.hierarchy import single, average, complete, ward, dendrogram
 from tslearn.clustering import TimeSeriesKMeans
+# from dtw import dtw
+from sklearn.cluster import AffinityPropagation
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 import sys
 import os
-from minisom import MiniSom
+#from minisom import MiniSom
 import math
 from sklearn.preprocessing import MinMaxScaler
 import gc
+from kmeans_cluster import ts_cluster
 
 
 class Stellar_dataset_clustering:
-    dataset_path = "/home/reza/Clustering/Result_code/mam-of-a-cryptocurrency-market-using-ml-approaches/dataset/"
+    dataset_path = "./dataset/"
     path_dataset = "./Dataset"
     matrics_file_name = "separated_users_distance_matrix_eth_btc_500_users_normalized.csv"
     distance_matrics = None
-    plot_path = "/home/reza/Clustering/Result_code/mam-of-a-cryptocurrency-market-using-ml-approaches/clustering_plots/kmeans/"
+    plot_path = "./clustering_plots/smo/"
     num_series = 500
     users = []
     my_series = []
     series = []
 
-
     def process_handler(self):
         #self.load_matrics()
-         self.load_dataset()
+        self.load_dataset()
 
         # print("Checking series...")
         # self.check_series()
 
         #print("Loading dataset into clustering method")
         #self.heirachical_clustering(self.distance_matrics, "average", "normalized_average_method_dendogram_all_users")
-        # self.smo_clustering("som_clustering_all_users_1-0_0-2")
-         self.kmeans_clustering("without_transform_kmeans_clustering_500_users_num_clu_4")
-
+        #self.smo_clustering("som_clustering_all_users_1-0_0-2_x_y_500")
+        #self.kmeans_clustering("without_transform_kmeans_clustering_500_users_num_clu_4")
+        # self.ts_clustering(5)
+        self.affinity_propagation_clustering("affinity_propagation_default")
     def load_dataset(self):
         print("Gathering data phase... ")
         for dirname, filename, files in os.walk(self.path_dataset):
@@ -48,6 +51,7 @@ class Stellar_dataset_clustering:
                 user["source_account"] = user_id
                 user["Date"] = pd.to_datetime([dt for dt in user["Date"].squeeze().tolist()], format="%Y-%m-%dT%H:%M:%S")
                 user = user.set_index("Date")
+                user = user.interpolate(method="linear", limit_direction="forward")
                 self.users.append(user.loc['2019-10-15':'2019-11-15'])
         del dirname, filename, files, file, user
 
@@ -70,6 +74,8 @@ class Stellar_dataset_clustering:
             self.my_series.append(tmp.reshape(len(tmp), 5))
         del scaler, tmp
         self.my_series = self.my_series[:200]
+
+
         print(f"Number of series {len(self.my_series)}")
         print("Data gathered successfully.")
         gc.collect()
@@ -77,30 +83,35 @@ class Stellar_dataset_clustering:
     def load_matrics(self):
         print("Loading dataset into Pandas... ")
         self.distance_matrics = pd.read_csv(self.dataset_path + self.matrics_file_name, sep=",", header=None)
-        # self.my_series = self.my_series.iloc[:500,:500].values
-        self.distance_matrics = self.distance_matrics.interpolate(method="linear", limit_direction="forward")
+        self.my_series = self.distance_matrics.iloc[:500,:500].values
+        # self.distance_matrics = self.distance_matrics.interpolate(method="linear", limit_direction="forward")
         print("Data loaded successfully.")
 
-    def check_series(self):
-        default_len = len(self.my_series[0])
-        bigger_series = []
-        bigger_than_default = 0
-        smaller_than_default = 0
-        smaller_series = []
-        k = 0
-        for elm in self.my_series:
-            if len(elm) > default_len:
-                bigger_than_default += 1
-                bigger_series.append(k)
-            elif len(elm) < default_len:
-                smaller_than_default += 1
-                smaller_series.append(k)
-            k += 1
-        print(f"Default series length is {default_len}")
-        print(f"Number of series which are bigger than default length are {bigger_than_default}")
-        print(bigger_series)
-        print(f"Number of series which are smaller than default length are {smaller_than_default}")
-        print(smaller_series)
+    def ts_clustering(self, n_clusters):
+        print("Clustering method")
+
+        ts = ts_cluster(n_clusters)
+        ts.k_means_clust_mp(self.my_series, 100, 0, True, 7)
+
+    def test_plot(self):
+        fig, axs = plt.subplots(2, 2, figsize=(25, 25))
+        fig.suptitle(f"Clustering {len(self.my_series)} users in Stellar network")
+        cluster = [
+            [],
+            [],
+            [],
+            []
+        ]
+        for i in range(len(self.my_series)):
+            axs[0, 0].plot(self.series[i].index, self.series[i]["TV"], c="gray", alpha=0.4)
+            cluster[0].append(self.series[i]["TV"])
+            if i >= 100:
+                break
+
+        axs[0, 0].plot(self.series[0].index, np.average(np.vstack(cluster[0]), axis=0), c="red")
+        plt.savefig(self.plot_path + "TV-Test-normalized" + ".png")
+
+
 
     def heirachical_clustering(self, dist_mat, method, plot_name):
         sys.setrecursionlimit(1000000)
@@ -128,7 +139,7 @@ class Stellar_dataset_clustering:
         n_clusters = 4#My suggest 4
         # n_clusters = math.ceil(math.sqrt(len(self.my_series)))
 
-        km = TimeSeriesKMeans(n_clusters=n_clusters, metric="dtw", verbose=True, n_jobs=8)
+        km = TimeSeriesKMeans(n_clusters=n_clusters, metric="dtw", verbose=True, n_jobs=4)
         labels = km.fit_predict(self.my_series)
         print("KMeans finished successfully.")
         self.kmeans_plot(labels, n_clusters, plot_name)
@@ -148,13 +159,13 @@ class Stellar_dataset_clustering:
                     [1, 0],
                     [1, 1]]
         for i in range(len(labels)):
-            axs[ax_index[labels[i]][0], ax_index[labels[i]][1] ].plot( self.series[i]["NT"], c="gray", alpha=0.4)
+            axs[ax_index[labels[i]][0], ax_index[labels[i]][1]].plot(self.series[i].index, self.series[i]["NT"], c="gray", alpha=0.4)
             cluster[labels[i]].append(self.series[i]["NT"])
 
-        axs[0, 0].plot(np.average(np.vstack(cluster[0]), axis=0), c="red")
-        axs[0, 1].plot(np.average(np.vstack(cluster[1]), axis=0), c="red")
-        axs[1, 0].plot(np.average(np.vstack(cluster[2]), axis=0), c="red")
-        axs[1, 1].plot(np.average(np.vstack(cluster[3]), axis=0), c="red")
+        axs[0, 0].plot(self.series[0].index, np.average(np.vstack(cluster[0]), axis=0), c="red")
+        axs[0, 1].plot(self.series[0].index, np.average(np.vstack(cluster[1]), axis=0), c="red")
+        axs[1, 0].plot(self.series[0].index, np.average(np.vstack(cluster[2]), axis=0), c="red")
+        axs[1, 1].plot(self.series[0].index, np.average(np.vstack(cluster[3]), axis=0), c="red")
 
         axs[0, 0].set_title(f"Cluster 0")
         axs[0, 1].set_title(f"Cluster 1")
@@ -166,7 +177,8 @@ class Stellar_dataset_clustering:
         print("Plots drew successfully.")
 
     def smo_clustering(self, plot_name):
-        som_x = som_y = math.ceil(math.sqrt(math.sqrt(len(self.my_series))))
+        # som_x = som_y = math.ceil(math.sqrt(len(self.my_series)))
+        som_x = som_y = 500
         som = MiniSom(som_x, som_y, len(self.my_series), sigma=1.0, learning_rate=0.2)#len(self.my_series[0])
         som.random_weights_init(self.my_series)
         som.train(self.my_series, 100000)
@@ -186,6 +198,21 @@ class Stellar_dataset_clustering:
                 cluster_number = x * som_y + y + 1
                 axs[cluster].set_title(f"Cluster {cluster_number}")
         plt.savefig(self.plot_path + plot_name + ".png")
+        plt.show()
+
+
+    def affinity_propagation_clustering(self, plot_name, damping=0.9):
+        model = AffinityPropagation(damping=damping)
+        model.fit(self.series)
+        yhats = model.predict(self.series)
+        clusters = unique(yhats)
+        for cluster in clusters:
+            # get row indexes for samples with this cluster
+            row_ix = where(yhat == cluster)
+            # create scatter of these samples
+            plt.scatter(self.series[row_ix, 0], self.series[row_ix, 1])
+        plt.savefig(self.plot_path + plot_name + ".png")
+        # show the plot
         plt.show()
 
 
