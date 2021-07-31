@@ -14,17 +14,34 @@ class userAmountIn15Minuets:
     number_of_iterate = 0
     start_time = None
     end_time = None
-    TASKs_Number = 11
+    TASKs_Number = 101
     number_of_tasks = 0
     queue = None
-    number_of_users_added = 10
+    existe_users = None
 
     def __init__(self, operation, db, working_collection, active_asset, opening_time, closing_time):
         self.operations = operation
         self.working_collection = db[working_collection]
+
         self.opening_time = datetime.strptime(opening_time, "%Y-%m-%dT%H:%M:%SZ")
         self.closing_time = datetime.strptime(closing_time, "%Y-%m-%dT%H:%M:%SZ")
         self.active_asset = active_asset
+
+    def query_wrong_users(self):
+        query = [
+            {"$group": {
+                "_id": "$source_account", "total": {"$sum": 1}
+            }
+            },
+            {"$match": {"total": {"$gt": 6428}}},
+            {"$project": {"_id": "$_id"}}]
+        return self.working_collection.aggregate(pipeline=query, allowDiskUse=True)
+
+    def clear_wrong_users(self):
+        print("Start cleaning working collection...")
+        for user in self.query_wrong_users():
+            self.working_collection.remove({"source_account": user["_id"]})
+        print("Cleaning phase finished.")
 
     def get_users(self):
         query = [
@@ -41,14 +58,34 @@ class userAmountIn15Minuets:
         print("Users Gathering finished.")
 
     async def handel_users(self):
+        num_leeaved_user = 0
+        self.clear_wrong_users()
         for user in self.users:
+            num_leeaved_user += 1
+            # user_ = "GCLNNMUBVDL3A5JJ6RBFFHMSL7NWV2CRY3MOVAIJ2RDMHHABTTJDT2CF"
             print("user(" + str(user['_id']) + ") started.")
-            if self.number_of_users_added <= 0:
+            # print("user(" + str(user_) + ") started.")
+            checker = self.check_user_exist(user['_id'])
+            if checker == False:
+                # print(" False Checker ")
                 await self.load_user_transactions(user["_id"])
                 await self.async_compute_and_save_tv_tn(user["_id"])
             else:
-                self.number_of_users_added -= 1
-                print("Leave this user.")
+                print(f"{num_leeaved_user}-Leave this user.")
+            del checker
+
+    def check_user_exist(self, source_account):
+        flag = False
+        self.load_processed_users(source_account)
+        for user in self.existe_users:
+            if source_account == user["source_account"]:
+                flag = True
+                break
+        return flag
+
+    def load_processed_users(self, source_account):
+        query = {"source_account": source_account}
+        self.existe_users = self.working_collection.find(query)
 
     async def load_user_transactions(self, source_account):
         query = [
@@ -79,12 +116,12 @@ class userAmountIn15Minuets:
             end_of_time_window = current_time + timedelta(seconds=900)
             transactions = await self.load_time_window_transactions(current_time, end_of_time_window)
             await queue.put({"transactions": transactions,
-                            "source_account": source_account,
+                             "source_account": source_account,
                              "current_time": current_time,
                              "end_time": end_of_time_window})
             print("put item in queue, Size are : ", queue.qsize())
             current_time = end_of_time_window
-            if self.number_of_tasks > 10:
+            if self.number_of_tasks > 100:
                 print("waiting for tasks to join to gether.")
                 self.number_of_tasks = 0
                 await queue.join()
@@ -93,8 +130,6 @@ class userAmountIn15Minuets:
         self.user_transactions = None
         await queue.join()
         tasks = []
-
-
 
     async def tv_tn_computing(self, queue):
         obj = await queue.get()

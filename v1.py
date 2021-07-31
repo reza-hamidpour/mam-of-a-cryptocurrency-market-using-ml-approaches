@@ -9,7 +9,7 @@ from clasess.clean_result_collection import CleanCollection
 async def compute_user_working_capital(asset, opening_time, closing_time):
     db_handler = Database()
     working_collection = asset + "_user_working_capital_selling_per_15_minuets"
-    working_db = db_handler.select_another_db("stellar_result")
+    working_db = db_handler.select_another_db("stellar")
     operations = db_handler.select_collection(asset + "_bucket")
     UWC = userAmountIn15Minuets(operations, working_db, working_collection, asset, opening_time, closing_time)
     UWC.get_users()
@@ -19,7 +19,7 @@ async def compute_user_working_capital(asset, opening_time, closing_time):
 async def compute_change_in_inventory(asset, opening_time, closing_time):
     db_handler = Database()
     working_collection = asset + "_change_in_inventory_per_15_minuets_part2"
-    working_db = db_handler.select_another_db("stellar_result")
+    working_db = db_handler.select_another_db("stellar")
     operations = db_handler.select_collection(asset + "_bucket")
     ChangeInINvetory = ComputeChangeInInventory(operations, working_db,
                                                 working_collection, opening_time, closing_time, asset)
@@ -40,7 +40,7 @@ async def compute_change_in_inventory(asset, opening_time, closing_time):
 #
 async def clean_working_collection(asset, wc_name):
     db_handler = Database()
-    stellar_result = db_handler.select_another_db("stellar_result")
+    stellar_result = db_handler.select_another_db("stellar")
     working_collection = stellar_result[asset + wc_name]
     operation_coll = db_handler.select_collection(asset + "_bucket")
     c_w_c = CleanCollection(working_collection, operation_coll)
@@ -50,6 +50,7 @@ async def clean_working_collection(asset, wc_name):
 
 # clean_working_collection("native", "_change_in_inventory_per_15_minuets")
 loop = asy.get_event_loop()
-loop.run_until_complete(compute_change_in_inventory("native", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
+loop.run_until_complete(compute_user_working_capital("btc", "2019-10-09T15:30:38Z", "2019-12-15T14:26:38Z"))
 # loop.run_until_complete(clean_working_collection("native", "_change_in_inventory_per_15_minuets_part2"))
 loop.close()
+
