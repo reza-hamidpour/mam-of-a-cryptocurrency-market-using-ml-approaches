@@ -1,0 +1,1 @@
+db.btc_user_working_capital_selling_per_15_minuets.aggregate([{"$group": {"_id": "$source_account", "total": {"$sum": 1}}}, {"$match": {"total": {"$gt": 6428}}}, {"$project": {"_id": "$_id"}}]);
