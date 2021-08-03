@@ -203,8 +203,19 @@ class userAmountIn15Minuets:
         trading_volume = 0
         number_of_trades = 0
         for transaction in transactions:
-            trading_volume += float(transaction["amount"])
+            if (hasattr(transaction, "selling_asset_type") and
+                transaction["selling_asset_type"] == self.active_asset) or \
+                    (hasattr(transaction, "selling_asset_code") and
+                     transaction["selling_asset_code"] == self.active_asset):
+                trading_volume += float(transaction["amount"])
+            elif (hasattr(transaction, "buying_asset_type") and
+                  transaction["buying_asset_type"] == self.active_asset) or \
+                    (hasattr(transaction, "buying_asset_code") and
+                     transaction["buying_asset_code"] == self.active_asset):
+                trading_volume += float(transaction["amount"]) * float(transaction['price'])
             number_of_trades += 1
+            # trading_volume += float(transaction["amount"])
+
         return {"trading_volume": trading_volume, "number_of_trades": number_of_trades}
 
     async def save_tv_and_nt_per_user_in_15_minuets(self, obj):

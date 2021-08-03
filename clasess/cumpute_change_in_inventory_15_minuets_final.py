@@ -92,7 +92,7 @@ class ComputeChangeInInventory:
         data = await queue.get()
         try:
             long_short_obj = await self.long_or_short_position(data["transactions"])
-            change_in_inventory = long_short_obj["short_positions_amount"] - long_short_obj["long_positions_amount"]
+            change_in_inventory = long_short_obj["long_positions_amount"] - long_short_obj["short_positions_amount"]
             obj = {
                 "source_account": data["source_account"],
                 "asset": self.active_asset,
@@ -153,7 +153,7 @@ class ComputeChangeInInventory:
                   transaction["buying_asset_type"] == self.active_asset) or \
                     (hasattr(transaction, "buying_asset_code") and
                      transaction["buying_asset_code"] == self.active_asset):
-                long_positions_amount += float(transaction["amount"])
+                long_positions_amount += float(transaction["amount"]) * float(transaction['price'])
                 long_positions_number += 1
         return {"long_positions_amount": long_positions_amount, "long_positions_number": long_positions_number,
                 "short_positions_amount": short_positions_amount, "short_positions_number": short_positions_number}
