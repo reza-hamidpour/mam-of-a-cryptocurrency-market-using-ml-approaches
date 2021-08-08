@@ -50,8 +50,8 @@ class ComputeCNT:
         counter = 0
         loop = asyncio.get_event_loop()
         queue = asyncio.Queue(self.queue_size)
-        number_of_users = list(await self.get_users_number())[0]["total"]
-        tasks = [loop.create_task(self.compute_CNI_per_user(queue)) for _ in range(number_of_users)]
+        # number_of_users = list(await self.get_users_number())[0]["total"]
+        tasks = [loop.create_task(self.compute_CNI_per_user(queue)) for _ in range(len(self.users))]
         for user in self.users:
             check_user = await self.check_user_exists(user["_id"])
             if check_user == False:

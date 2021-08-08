@@ -2,6 +2,9 @@ from datetime import datetime
 from datetime import timedelta
 import asyncio
 import math
+from multiprocessing import Process, Queue, Manager
+from pymongo import MongoClient
+
 
 class ComputeChangeInInventory:
     transactions = None
@@ -9,10 +12,14 @@ class ComputeChangeInInventory:
     users = None
     queue_size = 11
     user_transactions = None
+    num_consumers = 7
+    SENTINEL = "END"
+    db_name = "stellar"
 
     def __init__(self, operations, db, working_collection, opening_time, closing_time, active_asset):
         self.operations = operations
-        self.working_collection = db[working_collection]
+        self.working_collection = working_collection
+        self.query_working_collection = db[working_collection]
         self.opening_time = datetime.strptime(opening_time, "%Y-%m-%dT%H:%M:%SZ")
         self.closing_time = datetime.strptime(closing_time, "%Y-%m-%dT%H:%M:%SZ")
         self.active_asset = active_asset
@@ -30,20 +37,20 @@ class ComputeChangeInInventory:
         ]
         self.users = self.operations.aggregate(pipeline=query, allowDiskUse=True)
 
-    async def users_handler(self):
+    def users_handler(self):
         counter = 1
         for user in self.users:
-            check_user = await self.check_user_exists(user["_id"])
-            if  check_user == False:
-                await self.load_user_transactions(user["_id"])
+            check_user = self.check_user_exists(user["_id"])
+            if check_user == False:
+                self.load_user_transactions(user["_id"])
                 print("Source account : ", user["_id"], " Started.")
-                await self.tasks_handler_for_net_inventory(user["_id"])
+                self.multi_process_net_inventory(user["_id"])
             else:
                 counter += 1
                 print(counter, "- Leave this user")
         print("Finish.")
 
-    async def load_user_transactions(self, source_account):
+    def load_user_transactions(self, source_account):
         query = [
             {
                 "$match": {
@@ -56,7 +63,76 @@ class ComputeChangeInInventory:
                 }
             }
         ]
-        self.user_transactions = self.operations.aggregate(query)
+        self.user_transactions = list(self.operations.aggregate(query))
+
+    def multi_process_net_inventory(self, source_account):
+        manager = Manager()
+        que_ = Queue()
+        producer = Process(target=self.task_producer, args=(source_account,
+                                                            self.opening_time,
+                                                            self.closing_time,
+                                                            que_,
+                                                            self.user_transactions,
+                                                            self.num_consumers))
+        producer.start()
+        consumers = []
+        for k in range(self.num_consumers):
+            consumers.append(
+                Process(target=self.task_consumer, args=(k, que_, self.db_name, self.working_collection))
+            )
+            consumers[k].start()
+        que_.close()
+        que_.join_thread()
+        producer.join()
+        for k in range(self.num_consumers):
+            consumers[k].join()
+        for k in range(self.num_consumers):
+            consumers[k].terminate()
+
+    def task_producer(self, source_account, opening_time, closing_time, queue, transactions, num_workers):
+        current_time = opening_time
+        while current_time <= closing_time:
+            end_of_time_window = current_time + timedelta(seconds=900)
+            tw_transactions = self.load_time_window_transactions(current_time, end_of_time_window, transactions)
+            queue.put({
+                "transactions": tw_transactions,
+                "source_account": source_account,
+                "start_time_window": current_time,
+                "end_time_window": end_of_time_window})
+            current_time = end_of_time_window
+        for i in range(num_workers):
+            queue.put({
+                "transactions": self.SENTINEL
+            })
+        print(f"{source_account} time windows finished.")
+
+    def task_consumer(self, worker_num, queue, db_name, collection):
+        mongo_client = MongoClient()
+        db = mongo_client[db_name]
+        working_collection = db[collection]
+        while True:
+            data = queue.get()
+            if data['transactions'] != self.SENTINEL:
+                try:
+                    long_short_obj = self.long_or_short_position(data["transactions"])
+                    change_in_inventory = long_short_obj["long_positions_amount"] - long_short_obj[
+                        "short_positions_amount"]
+                    obj = {
+                        "source_account": data["source_account"],
+                        "time_window": data["start_time_window"],
+                        "change_in_inventory": change_in_inventory,
+                        "short_positions_amount": long_short_obj["short_positions_amount"],
+                        "number_of_short_positions": long_short_obj["short_positions_number"],
+                        "long_positions_amount": long_short_obj["long_positions_amount"],
+                        "number_of_long_positions": long_short_obj["long_positions_number"]
+                    }
+                    self.save_short_and_long_positions(obj, working_collection)
+                except Exception as e:
+                    pass
+            elif data['transactions'] == self.SENTINEL:
+                mongo_client.close()
+                print(f"Worker {worker_num} finished.")
+                break
 
     async def tasks_handler_for_net_inventory(self, source_account):
         loop = asyncio.get_event_loop()
@@ -70,7 +146,7 @@ class ComputeChangeInInventory:
         while current_time <= self.closing_time:
             end_of_time_window = current_time + timedelta(seconds=900)
             try:
-                transactions = await self.load_time_window_transactions(current_time, end_of_time_window)
+                transactions = self.load_time_window_transactions(current_time, end_of_time_window)
                 await queue.put({"transactions": transactions,
                                  "source_account": source_account,
                                  "start_time_window": current_time,
@@ -103,24 +179,24 @@ class ComputeChangeInInventory:
                 "long_positions_amount": long_short_obj["long_positions_amount"],
                 "number_of_long_positions": long_short_obj["long_positions_number"]
             }
-            await self.save_short_and_long_positions(obj)
+            # self.save_short_and_long_positions(obj)
             # print("Positions at time " + str(data["start_time_window"]) + " inserted.")
             change_in_inventory = None
             await queue.task_done()
         except Exception as e:
             pass
 
-    async def load_time_window_transactions(self, start_time_window, end_time_window):
+    def load_time_window_transactions(self, start_time_window, end_time_window, transactions):
         tw_transactions = []
-        for transaction in self.user_transactions:
+        for transaction in transactions:
             tmp = datetime.strptime(transaction["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ")
-            if tmp >= start_time_window and tmp <= end_time_window:
+            if start_time_window <= tmp <= end_time_window:
                 tw_transactions.append(transaction)
             else:
                 continue
         return tw_transactions
 
-    async def query_on_transactions(self, source_account, start_time, end_time):
+    def query_on_transactions(self, source_account, start_time, end_time):
         query = [{
             "$match": {
                 "source_account": source_account,
@@ -129,7 +205,7 @@ class ComputeChangeInInventory:
                 },
                     {
                         "created_at": {"$lte": start_time}
-                     }
+                    }
                 ]
             }
         },
@@ -137,36 +213,37 @@ class ComputeChangeInInventory:
         ]
         self.transactions = self.operations.aggregate(pipeline=query, allowDiskUse=True)
 
-    async def long_or_short_position(self, transactions):
+    def long_or_short_position(self, transactions):
         long_positions_amount = 0.0
         long_positions_number = 0
         short_positions_amount = 0.0
         short_positions_number = 0
         for transaction in transactions:
-            if (hasattr(transaction, "selling_asset_type") and
-                transaction["selling_asset_type"] == self.active_asset) or \
-                    (hasattr(transaction, "selling_asset_code") and
-                     transaction["selling_asset_code"] == self.active_asset):
+            if "selling_asset_type" in transaction.keys() and transaction["selling_asset_type"] == self.active_asset:
                 short_positions_amount += float(transaction["amount"])
                 short_positions_number += 1
-            elif (hasattr(transaction, "buying_asset_type") and
-                  transaction["buying_asset_type"] == self.active_asset) or \
-                    (hasattr(transaction, "buying_asset_code") and
-                     transaction["buying_asset_code"] == self.active_asset):
+            elif "selling_asset_code" in transaction.keys() and transaction["selling_asset_code"] == self.active_asset.upper():
+                short_positions_amount += float(transaction["amount"])
+                short_positions_number += 1
+            elif "buying_asset_type" in transaction.keys() and transaction["buying_asset_type"] == self.active_asset:
+                long_positions_amount += float(transaction["amount"]) * float(transaction['price'])
+                long_positions_number += 1
+            elif "buying_asset_code" in transaction.keys() and transaction["buying_asset_code"] == self.active_asset.upper():
                 long_positions_amount += float(transaction["amount"]) * float(transaction['price'])
                 long_positions_number += 1
         return {"long_positions_amount": long_positions_amount, "long_positions_number": long_positions_number,
                 "short_positions_amount": short_positions_amount, "short_positions_number": short_positions_number}
 
-    async def save_short_and_long_positions(self, obj):
-        self.working_collection.insert(obj)
+    def save_short_and_long_positions(self, obj, handler):
+        handler.insert(obj)
+        # self.working_collection.insert(obj)
         # print("Positions at time " + obj["time_window"] + " saved.")
 
-    async def check_user_exists(self, source_account):
+    def check_user_exists(self, source_account):
         query = {
             "source_account": source_account
         }
-        processed_users = self.working_collection.find_one(query)
+        processed_users = self.query_working_collection.find_one(query)
         check = False
 
         if processed_users != None and len(list(processed_users)) > 0:
