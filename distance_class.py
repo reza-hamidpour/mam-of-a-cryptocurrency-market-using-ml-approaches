@@ -14,7 +14,7 @@ class DistaceMatrix:
 
     path_dataset = "./Dataset"
     path_save = "dataset/"
-    distance_matrics_name = "separated_users_distance_matrix_eth_btc_500_users_normalized.csv"
+    distance_matrix_name = "separated_users_distance_matrix_500_users.csv"
     users = []
     my_series = []
     distance_matrix = None
@@ -24,16 +24,24 @@ class DistaceMatrix:
     num_cpu = 8
 
     def eth_btc_clustering(self):
+        # self.load_dataset()
+        # print("Preparing BTC distance matrix...")
+        # self.prepare_matrix("2.0")
+        # self.__task_handler()
+        # self.save_our_matrix("btc_")
+        # print("Preparing BTC distance matrix finished successfully. ")
+        print("Preparing ETH distance matrix...")
         self.load_dataset()
-        self.prepare_matrix()
-        # await self.calculate_distance_matrix()
+        self.prepare_matrix("3.0")
         self.__task_handler()
-        self.save_our_matrix()
-        result = self.hierachical_clustering(self.distance_matrix, "complete")
+        self.save_our_matrix("eth_")
+        print("Preparing ETH distance matrix finished successfully. ")
+        # result = self.hierachical_clustering(self.distance_matrix, "complete")
 
     def load_dataset(self):
         print("Gathering data phase... ")
-        print("Normalizing Dataset.")
+        # print("Normalizing Dataset.")
+        self.users = []
         for dirname, filename, files in os.walk(self.path_dataset):
             for file in files:
                 user = pd.read_csv( self.path_dataset + "/" + file, sep=",", header=[0, 1, 2, 3, 4, 5, 6])
@@ -46,11 +54,12 @@ class DistaceMatrix:
                 user["Date"] = pd.to_datetime([dt for dt in user["Date"].squeeze().tolist()], format="%Y-%m-%dT%H:%M:%S")
                 user = user.set_index("Date")
                 self.users.append(user.loc['2019-10-15':'2019-11-15'])
+        self.users = pd.concat(self.users)
         print("Data gathered successfully.")
 
-    def prepare_matrix(self):
+    def prepare_matrix(self, asset_code):
         print("Preparing Dataset into standard form...")
-        self.users = pd.concat(self.users)
+        self.users = self.users.query("asset_code == " + asset_code)
         self.users = self.users.reset_index()
         self.users = self.users.set_index(["Date", "source_account"])
         self.users = self.users.groupby("source_account")
@@ -102,8 +111,6 @@ class DistaceMatrix:
             print(f"Time series {i} finished at {datetime.now()}")
             for k in range(self.num_cpu):
                 consumers[k].terminate()
-            if i >= 500:
-             break
         print("Distance matrix created successfully.")
 
     def task_producer(self, index_i, qu):
@@ -136,10 +143,10 @@ class DistaceMatrix:
             "i_index": self.SENTINEL
         })
 
-    def save_our_matrix(self):
-        print(f"Saving distance matrix into {self.path_save}{self.distance_matrics_name} ... ")
+    def save_our_matrix(self, bucket_name):
+        print(f"Saving distance matrix into {self.path_save}{bucket_name}{self.distance_matrix_name} ... ")
         # fmt_str = [["%s" for j in range(self.n_series)] for i in range(self.n_series)]
-        with open(self.path_save + self.distance_matrics_name, "a") as file_handler:
+        with open(self.path_save + bucket_name + self.distance_matrix_name, "a") as file_handler:
             np.savetxt( file_handler, self.distance_matrix, delimiter=",")
         print("Distance matrix saved successfully.")
 

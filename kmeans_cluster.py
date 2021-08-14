@@ -103,7 +103,7 @@ class ts_cluster(object):
                 })
 
             elif data["data"] == self.SENTINEL:
-                del cur_dist, min_dist, closest_clust, c_id, j, cent
+                del cur_dist, min_dist, closest_clust, j, cent
                 assignment_queue.put({
                     "data_index": self.SENTIEL,
                     "consumer_id": consumer_id,

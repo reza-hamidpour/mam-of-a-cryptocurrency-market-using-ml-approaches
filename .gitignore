@@ -7,3 +7,6 @@ complete_method_dendogram_500_users.png
 complete_method_dendogram_500_users_normalized.png
 dataset/
 test_algorithm.py
+dataset_end/
+dataset_small_sample/
+class/
