@@ -13,6 +13,12 @@ class KMeans_clustering:
     series = [[], []]
     btc_users = None
     eth_users = None
+    SENTINEL = "END"
+
+    def __init__(self, metric="dtw", num_workers=1):
+        self.metric = metric
+        self.num_workers = num_workers
+        print(f"Kmeans Clustering loaded by {metric} distance metric and {num_workers} Workers...")
 
     def load_dataset(self):
         print("Gathering data phase... ")
@@ -68,17 +74,98 @@ class KMeans_clustering:
         dist = dtw(t1, t2)
         return dist.distance
 
+    def distance_worker(self, worker_num, data_queue, distance_queue, distance_metric):
+        while True:
+            data = data_queue.get()
+            if data["t1_index"] != self.SENTINEL:
+                if distance_metric == "dtw":
+                    dist = dtw(data["t1"], data["t2"])
+                    distance = dist.distance
+                    # distance = 0
+                    # distance = self.dtw_dist(data["t1"], data["t2"])
+                elif distance_metric == "euclid":
+                    distance = np.sqrt(((data["t1"] - data["t2"]) ** 2).sum(axis=1))
+                    # distance = self.euclid_dist(data["t1"], data["t2"])
+                else:
+                    distance = 0
+                distance_queue.put({
+                    "distance": distance,
+                    "t1_index": data["t1_index"],
+                    "t2_index": data["t2_index"]
+                })
+            else:
+                distance_queue.put({
+                    "t1_index": self.SENTINEL
+                })
+                print(f"Distance worker {worker_num} finished.")
+                break
+
     def calc_centroids(self, data, centroids):
-        
+        queue = Queue()
+        manager = Manager()
+        workers = []
+        distance_queue = Queue()
+
+        # Prepare workers data
+        print(f"Start Calc centroids...")
         dist = np.zeros([len(data), centroids.shape[0]])
         for idx, centroid in enumerate(centroids):
-            # dist[:, idx] = self.euclid_dist(centroids, data)
             for i in range(len(data)):
-                cen = pd.DataFrame(centroid, columns=["Date", "NT", "TV", "CII", "CNI", "inter_trade"])
-                cen = cen.set_index("Date")
-                node = pd.DataFrame(data[i], columns=["Date", "NT", "TV", "CII", "CNI", "inter_trade"])
-                node = node.set_index("Date")
-                dist[i, idx] = self.dtw_dist(node, cen)
+                # dist[i, idx] = self.dtw_dist(node, cen)
+                if self.metric == "dtw":
+                    cen = pd.DataFrame(centroid, columns=["Date", "NT", "TV", "CII", "CNI", "inter_trade"])
+                    cen = cen.set_index("Date")
+                    node = pd.DataFrame(data[i], columns=["Date", "NT", "TV", "CII", "CNI", "inter_trade"])
+                    node = node.set_index("Date")
+                elif self.metric == "euclid":
+                    cen = centroid
+                    node = data[i]
+                else:
+                    cen = None
+                    node = None
+                queue.put({
+                    "t1": cen,
+                    "t1_index": idx,
+                    "t2": node,
+                    "t2_index": i,
+                })
+        # Declare and start Distance Workers
+        for k in range(self.num_workers):
+            workers.append(
+                Process(target=self.distance_worker, args=(k, queue, distance_queue, self.metric))
+            )
+            workers[k].start()
+        for k in range(self.num_workers):
+            queue.put({
+                "t1_index": self.SENTINEL
+            })
+
+        queue.close()
+        queue.join_thread()
+
+        n_finished_workers = self.num_workers
+        flag = True
+        while flag:
+            data = distance_queue.get()
+            if "t1_index" in data.keys():
+                if data["t1_index"] != self.SENTINEL:
+                    dist[data["t2_index"], data["t1_index"]] = data["distance"]
+                    # print("Distance detected.")
+                elif data["t1_index"] == self.SENTINEL and n_finished_workers <= 0:
+                    print("Distance matrix created.")
+                    flag = False
+                elif data["t1_index"] == self.SENTINEL and n_finished_workers > 0:
+                    n_finished_workers = n_finished_workers - 1
+                    # print(f"Num active workers {n_finished_workers}")
+                    if n_finished_workers <= 0:
+                        flag = False
+                        print("Distance matrix created")
+            elif "t1_index" not in data.keys() or data == None:
+                print("Distance matrix created.")
+                flag = False
+        for k in range(self.num_workers):
+            workers[k].terminate()
+        print(f"Calc centroids finished.")
         return np.array(dist)
 
     def closest_centroids(self, data, centroids):
@@ -88,18 +175,43 @@ class KMeans_clustering:
     def move_centroids(self, data, closest, centroids):
         k = centroids.shape[0]
 
-        new_centroids = np.array([data[closest == c][:, 1:6].mean(axis=0) for c in np.unique(closest)])
+        new_centroids_dataframe = []
+        series = []
+        iter = 0
+        for c in np.unique(closest):
+            for _, serie in enumerate(data[closest == c]):
+                series.append(
+                    pd.DataFrame(serie, columns=["Date", "NT", "TV", "CII", "CNI", "inter_trade"]))
+            series = pd.concat(series)
+            tmp = series.groupby(pd.Grouper(key="Date", freq="900s")).mean()
+            series = tmp
+            new_centroids_dataframe.append(series)
+            iter += 1
+        print(new_centroids_dataframe[0])
+        print(np.array(new_centroids_dataframe[0]).shape)
+        quit()
+        new_centroids = np.array([data[closest == c][:, :, 1:].mean(axis=0) for c in np.unique(closest)])
+        print(f"new_centroids shape : {new_centroids.shape}")
+
         if k - new_centroids.shape[0] > 0:
             print("adding {} centroid(s)".format(k - new_centroids.shape[0]))
             additional_centroids = data[np.random.randint(0, len(data), k - new_centroids.shape[0])]
+            print(f"additional_centroids shape : {additional_centroids.shape}")
             new_centroids = np.append(new_centroids, additional_centroids, axis=0)
+        quit
         return new_centroids
 
     def init_centroids(self, data, num_clust):
 
-        centroids = np.zeros([num_clust, data.shape[1]])
+        centroids = []
 
-        centroids[0, :] = data[np.random.randint(0, data.shape[0], 1)]
+        for i in enumerate(np.random.randint(0, data.shape[0], num_clust)):
+            centroids.append(data[i])
+        centroids = np.array(centroids)
+
+        # centroids = np.zeros([num_clust, data.shape[1]])
+        #
+        # centroids[0, :] = data[np.random.randint(0, data.shape[0], 1)]
 
         for i in range(1, num_clust):
             D2 = np.min([np.linalg.norm(data - c, axis=1) ** 2 for c in centroids[0:i, :]], axis=0)
@@ -115,7 +227,15 @@ class KMeans_clustering:
         return centroids
 
     def k_means(self, data, num_clust, num_iter):
-        centroids = self.init_centroids(data, num_clust)
+        # centroids = self.init_centroids(data, num_clust) K-Means++
+
+        centroids = []
+
+        for _, i in enumerate(np.random.randint(0, data.shape[0], num_clust)):
+            centroids.append(data[i])
+
+        centroids = np.array(centroids)
+
         last_centroids = centroids
         for n in range(num_iter):
             print(f"Iteration {n}")

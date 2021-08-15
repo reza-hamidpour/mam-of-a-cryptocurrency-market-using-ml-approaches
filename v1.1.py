@@ -13,9 +13,10 @@ async def clustering():
         stellar_clustering.process_handler()
 
 async def kmeans():
-    kmeans_ = KMeans_clustering()
+    kmeans_ = KMeans_clustering("dtw", 7)
     kmeans_.load_dataset()
-    kmeans_.k_means(kmeans_.series[0], 5, 1000)
+    result = kmeans_.k_means(kmeans_.series[0], 5, 1000)
+    print(result)
 
 loop = asy.get_event_loop()
 #loop.run_until_complete(distance_matrix_and_hierachical_clustering())
