@@ -1,6 +1,6 @@
 import asyncio as asy
-from distance_class import DistaceMatrix
-from clustering_class import Stellar_dataset_clustering
+# from distance_class import DistaceMatrix
+# from clustering_class import Stellar_dataset_clustering
 from classes.kmeans_clustering import KMeans_clustering
 
 async def distance_matrix_and_hierachical_clustering():
@@ -13,10 +13,16 @@ async def clustering():
         stellar_clustering.process_handler()
 
 async def kmeans():
-    kmeans_ = KMeans_clustering("dtw", 7)
+    num_workers = 4
+    num_iter = 5
+    normalization_method = ["z_score", "min_max", "log", "log_10", "tanh", "MaxAbsScaler"]
+    kmeans_ = KMeans_clustering("dtw", num_workers, normalization_method[5])
     kmeans_.load_dataset()
-    result = kmeans_.k_means(kmeans_.series[0], 5, 1000)
-    print(result)
+    for num_cluster in range(1, 3):
+        kmeans_.k_means_and_plot_results(num_cluster, num_iter)
+    kmeans_.plot_elbow_method("inertia")
+    kmeans_.plot_elbow_method("distortion")
+    # kmeans_.plot_kmeans_result(kmeans_.series[0], result["centroids"], result["closest"], 4)
 
 loop = asy.get_event_loop()
 #loop.run_until_complete(distance_matrix_and_hierachical_clustering())

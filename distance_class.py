@@ -63,6 +63,7 @@ class DistaceMatrix:
         self.users = self.users.reset_index()
         self.users = self.users.set_index(["Date", "source_account"])
         self.users = self.users.groupby("source_account")
+
         for user in self.users:
             self.my_series.append(user[1].values)
         self.users = None

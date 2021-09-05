@@ -1,5 +1,5 @@
 from scipy.cluster.hierarchy import single, average, complete, ward, dendrogram
-from tslearn.clustering import TimeSeriesKMeans
+# from tslearn.clustering import TimeSeriesKMeans
 # from dtw import dtw
 from sklearn.cluster import AffinityPropagation
 import numpy as np
@@ -7,7 +7,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import sys
 import os
-from minisom import MiniSom
+# from minisom import MiniSom
 import math
 from sklearn.preprocessing import MinMaxScaler
 import gc
@@ -54,7 +54,7 @@ class Stellar_dataset_clustering:
             self.load_matrics()
             self.load_behavioral_matrics()
             print("Loading dataset into clustering method")
-            #self.heirachical_clustering(self.distance_matrics, "average", "normalized_average_method_dendogram_all_users")
+            self.heirachical_clustering(self.distance_matrics, "average", "normalized_average_method_dendogram_all_users")
             self.smo_clustering(plot_name)
             # self.smo_clusternig_base_on_real_data(plot_name)
 

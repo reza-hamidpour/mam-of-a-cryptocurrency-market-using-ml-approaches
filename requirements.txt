@@ -1,23 +1,15 @@
 dtw-python==1.1.10
-matplotlib==3.4.1
-numba==0.53.1
-numpy==1.20.2
-pandas==1.2.4
+matplotlib
+numba
+numpy
+pandas
 patsy==0.5.1
 Pillow==8.2.0
 pycosat==0.6.3
-pycparser @ file:///tmp/build/80754af9/pycparser_1594388511720/work
-pyOpenSSL @ file:///tmp/build/80754af9/pyopenssl_1608057966937/work
 pyparsing==2.4.7
-PySocks @ file:///tmp/build/80754af9/pysocks_1605305812635/work
 python-dateutil==2.8.1
 pytz==2021.1
-requests @ file:///tmp/build/80754af9/requests_1608241421344/work
-ruamel-yaml-conda @ file:///tmp/build/80754af9/ruamel_yaml_1616016711199/work
 scikit-learn==0.24.2
 scipy==1.6.3
-six @ file:///home/linux1/recipes/ci/six_1610970791821/work
 statsmodels==0.12.2
 threadpoolctl==2.1.0
-tqdm @ file:///tmp/build/80754af9/tqdm_1615925068909/work
-urllib3 @ file:///tmp/build/80754af9/urllib3_1615837158687/work
